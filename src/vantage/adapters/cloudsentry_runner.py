@@ -6,10 +6,9 @@ passed as individual argv values; no shell is involved.
 import json
 import subprocess
 from pathlib import Path
-from uuid import UUID
 
 from vantage.adapters.cloudsentry import import_cloudsentry_report
-from vantage.domain.models import Asset, AssetKind, ScanReport, ScanRequest
+from vantage.domain.models import Asset, AssetKind, ScanReport, ScanRequest, ScanState
 
 
 class CloudSentryExecutionError(RuntimeError):
@@ -30,6 +29,8 @@ class CloudSentryProcessScanner:
     def scan(self, asset: Asset, request: ScanRequest) -> ScanReport:
         if asset.kind != AssetKind.LOCAL_WORKSPACE:
             raise ValueError("CloudSentry only accepts local_workspace assets")
+        if request.asset_id != asset.id or request.organization_id != asset.organization_id:
+            raise ValueError("Scan request does not match the supplied asset")
         workspace = Path(asset.canonical_value)
         if not workspace.is_absolute():
             raise ValueError("Workspace path must be absolute")
@@ -45,13 +46,7 @@ class CloudSentryProcessScanner:
                         f"Workspace contains a symbolic link; refusing ambiguous scope: {candidate}"
                     )
 
-        command = [
-            self.executable,
-            "scan",
-            str(workspace),
-            "--format",
-            "json",
-        ]
+        command = [self.executable, "scan", str(workspace), "--format", "json"]
         try:
             completed = subprocess.run(
                 command,
@@ -87,6 +82,7 @@ class CloudSentryProcessScanner:
             organization_id=asset.organization_id,
             asset_id=asset.id,
         )
-        if completed.returncode == 2 and report.state.value == "completed":
-            report = report.model_copy(update={"state": "partial" if report.files_or_targets_examined else "failed"})
+        if completed.returncode == 2 and report.state == ScanState.COMPLETED:
+            state = ScanState.PARTIAL if report.files_or_targets_examined else ScanState.FAILED
+            report = report.model_copy(update={"state": state})
         return report
