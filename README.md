@@ -17,7 +17,7 @@ VANTAGE is a hybrid cybersecurity platform built around a secure control plane a
 
 ## Architecture
 
-See [Architecture](docs/ARCHITECTURE.md), [Threat Model](docs/THREAT_MODEL.md), [Roadmap](docs/ROADMAP.md), and [Architecture Decisions](docs/DECISIONS.md).
+See [Architecture](docs/ARCHITECTURE.md), [Threat Model](docs/THREAT_MODEL.md), [Scanner Integration](docs/SCANNER_INTEGRATION.md), [Roadmap](docs/ROADMAP.md), and [Architecture Decisions](docs/DECISIONS.md).
 
 ## Development
 
