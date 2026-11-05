@@ -1,9 +1,16 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 
-from vantage.domain.models import ApprovedScope, Asset, AssetKind, ScanReport, ScanRequest, ScanState
+from vantage.domain.models import (
+    ApprovedScope,
+    Asset,
+    AssetKind,
+    ScanReport,
+    ScanRequest,
+    ScanState,
+)
 from vantage.scanning.coordinator import ScanCoordinator, ScopeDenied
 from vantage.scanning.registry import ScannerRegistry
 
@@ -33,8 +40,11 @@ def setup_case():
         allowed_scanner_ids=frozenset({"stub"}),
     )
     request = ScanRequest(
-        organization_id=org, asset_id=asset.id, scope_id=scope.id,
-        scanner_id="stub", requested_by=user,
+        organization_id=org,
+        asset_id=asset.id,
+        scope_id=scope.id,
+        scanner_id="stub",
+        requested_by=user,
     )
     registry = ScannerRegistry()
     registry.register(StubScanner())
@@ -66,7 +76,9 @@ def test_request_asset_mismatch_is_denied():
 
 def test_expired_scope_is_denied():
     asset, scope, request, coordinator = setup_case()
-    expired = scope.model_copy(update={"expires_at": datetime.now(timezone.utc) - timedelta(days=1)})
+    expired = scope.model_copy(
+        update={"expires_at": datetime.now(UTC) - timedelta(days=1)}
+    )
     with pytest.raises(ScopeDenied):
         coordinator.run(asset, expired, request)
 

@@ -1,5 +1,5 @@
 """Policy gate before scanner dispatch. Persistence and queueing come later."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from vantage.domain.models import ApprovedScope, Asset, ScanReport, ScanRequest
 from vantage.scanning.registry import ScannerRegistry
@@ -20,7 +20,7 @@ class ScanCoordinator:
             raise ScopeDenied("Request references a different asset")
         if scope.organization_id != asset.organization_id or scope.asset_id != asset.id:
             raise ScopeDenied("Approved scope does not authorize this asset")
-        if scope.expires_at and scope.expires_at <= datetime.now(timezone.utc):
+        if scope.expires_at and scope.expires_at <= datetime.now(UTC):
             raise ScopeDenied("Approved scope has expired")
         if request.scope_id != scope.id:
             raise ScopeDenied("Request references a different authorization record")

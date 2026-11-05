@@ -1,5 +1,6 @@
 """Scanner extension contract."""
 from typing import Protocol
+
 from vantage.domain.models import Asset, ScanReport, ScanRequest
 
 
