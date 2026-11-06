@@ -2,7 +2,7 @@ import os
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
@@ -61,8 +61,6 @@ def tenant_fixture():
         session.commit()
     yield org_a.id, org_b.id, identity.id, project_b.id
     with admin_engine.begin() as connection:
-        from sqlalchemy import delete
-
         connection.execute(
             delete(Organization).where(Organization.id.in_([org_a.id, org_b.id]))
         )
