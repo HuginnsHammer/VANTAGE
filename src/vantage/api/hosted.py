@@ -319,15 +319,22 @@ def create_app(
         client_id = os.environ.get("VANTAGE_OIDC_CLIENT_ID", "")
         audience = os.environ.get("VANTAGE_OIDC_AUDIENCE", "")
         redirect_uri = os.environ.get("VANTAGE_OIDC_REDIRECT_URI", "")
+        authorization_endpoint = os.environ.get("VANTAGE_OIDC_AUTHORIZATION_URL", "")
+        token_endpoint = os.environ.get("VANTAGE_OIDC_TOKEN_URL", "")
         if not redirect_uri:
             public_base = os.environ.get("VANTAGE_PUBLIC_BASE_URL", "").rstrip("/")
             redirect_uri = f"{public_base}/app" if public_base else ""
         return {
-            "configured": bool(issuer and client_id and audience and redirect_uri),
+            "configured": bool(
+                issuer and client_id and audience and redirect_uri
+                and authorization_endpoint and token_endpoint
+            ),
             "issuer": issuer,
             "client_id": client_id,
             "audience": audience,
             "redirect_uri": redirect_uri,
+            "authorization_endpoint": authorization_endpoint,
+            "token_endpoint": token_endpoint,
             "scope": os.environ.get("VANTAGE_OIDC_SCOPE", "openid profile email"),
         }
 
