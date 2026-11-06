@@ -233,6 +233,26 @@ def create_app(
             allow_headers=["Authorization", "Content-Type"],
         )
 
+    @app.middleware("http")
+    async def hosted_security_headers(request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Cache-Control"] = "no-store"
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        if request.url.path in {"/", "/app"} or request.url.path.startswith("/assets/hosted/"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; script-src 'self'; style-src 'self'; "
+                "img-src 'self' data:; font-src 'self'; "
+                "connect-src 'self' https: http://localhost:* http://127.0.0.1:*; "
+                "form-action 'self' https: http://localhost:*; "
+                "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+            )
+        return response
+
     bearer = HTTPBearer(auto_error=False)
 
     def current_identity(
