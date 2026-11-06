@@ -91,23 +91,16 @@
     return url;
   }
 
-  async function discoverProvider() {
-    const issuer = state.config.issuer.replace(/\/$/, "");
-    const discoveryUrl = `${issuer}/.well-known/openid-configuration`;
-    const response = await fetch(assertSafeEndpoint(discoveryUrl));
-    if (!response.ok) throw new Error("Could not load the identity provider configuration.");
-    const discovery = await response.json();
-    if (discovery.issuer !== state.config.issuer) {
-      throw new Error("The identity provider issuer does not match VANTAGE configuration.");
-    }
-    assertSafeEndpoint(discovery.authorization_endpoint);
-    assertSafeEndpoint(discovery.token_endpoint);
-    return discovery;
+  function providerEndpoints() {
+    return {
+      authorization: assertSafeEndpoint(state.config.authorization_endpoint),
+      token: assertSafeEndpoint(state.config.token_endpoint)
+    };
   }
 
   async function beginLogin() {
     message(authMessage, "Connecting to your identity provider…");
-    const discovery = await discoverProvider();
+    const endpoints = providerEndpoints();
     const verifier = randomValue();
     const challenge = await sha256(verifier);
     const oauthState = randomValue();
@@ -116,10 +109,10 @@
       verifier,
       state: oauthState,
       redirectUri,
-      tokenEndpoint: discovery.token_endpoint,
+      tokenEndpoint: endpoints.token.toString(),
       clientId: state.config.client_id
     }));
-    const authorization = new URL(discovery.authorization_endpoint);
+    const authorization = new URL(endpoints.authorization);
     authorization.searchParams.set("client_id", state.config.client_id);
     authorization.searchParams.set("redirect_uri", redirectUri);
     authorization.searchParams.set("response_type", "code");

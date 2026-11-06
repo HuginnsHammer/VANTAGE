@@ -319,15 +319,22 @@ def create_app(
         client_id = os.environ.get("VANTAGE_OIDC_CLIENT_ID", "")
         audience = os.environ.get("VANTAGE_OIDC_AUDIENCE", "")
         redirect_uri = os.environ.get("VANTAGE_OIDC_REDIRECT_URI", "")
+        authorization_endpoint = os.environ.get("VANTAGE_OIDC_AUTHORIZATION_URL", "")
+        token_endpoint = os.environ.get("VANTAGE_OIDC_TOKEN_URL", "")
         if not redirect_uri:
             public_base = os.environ.get("VANTAGE_PUBLIC_BASE_URL", "").rstrip("/")
             redirect_uri = f"{public_base}/app" if public_base else ""
         return {
-            "configured": bool(issuer and client_id and audience and redirect_uri),
+            "configured": bool(
+                issuer and client_id and audience and redirect_uri
+                and authorization_endpoint and token_endpoint
+            ),
             "issuer": issuer,
             "client_id": client_id,
             "audience": audience,
             "redirect_uri": redirect_uri,
+            "authorization_endpoint": authorization_endpoint,
+            "token_endpoint": token_endpoint,
             "scope": os.environ.get("VANTAGE_OIDC_SCOPE", "openid profile email"),
         }
 
@@ -692,7 +699,13 @@ def create_app(
                 "slug": project.slug, "created_at": project.created_at.isoformat(),
             } for project in projects]}
 
-    repository_root = Path(__file__).resolve().parents[3]
+    configured_root = os.environ.get("VANTAGE_APP_ROOT")
+    repository_root = (
+        Path(configured_root).expanduser().resolve() if configured_root else Path.cwd()
+    )
+    if not (repository_root / "hosted.html").is_file():
+        repository_root = Path(__file__).resolve().parents[3]
+
     @app.get("/", include_in_schema=False)
     @app.get("/app", include_in_schema=False)
     def hosted_workspace() -> FileResponse:

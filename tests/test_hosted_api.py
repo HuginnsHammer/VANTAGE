@@ -55,6 +55,14 @@ def test_hosted_identity_workspaces_and_tenant_isolation(monkeypatch):
         monkeypatch.setenv("VANTAGE_OIDC_ISSUER", issuer)
         monkeypatch.setenv("VANTAGE_OIDC_AUDIENCE", "https://api.vantage.test")
         monkeypatch.setenv("VANTAGE_OIDC_CLIENT_ID", "vantage-browser-test")
+        monkeypatch.setenv(
+            "VANTAGE_OIDC_AUTHORIZATION_URL",
+            "https://issuer.vantage.test/authorize",
+        )
+        monkeypatch.setenv(
+            "VANTAGE_OIDC_TOKEN_URL",
+            "https://issuer.vantage.test/oauth/token",
+        )
         monkeypatch.setenv("VANTAGE_OIDC_REDIRECT_URI", "https://app.vantage.test/app")
         auth_config = client.get("/api/v2/auth/config").json()
         assert auth_config["configured"] is True

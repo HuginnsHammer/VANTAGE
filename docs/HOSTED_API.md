@@ -63,6 +63,8 @@ Then configure the hosted API with the restricted runtime role:
 ~~~fish
 set -x VANTAGE_DATABASE_URL "postgresql+psycopg://vantage_app:...@db-host/vantage"
 set -x VANTAGE_OIDC_ISSUER "https://your-issuer/"
+set -x VANTAGE_OIDC_AUTHORIZATION_URL "https://your-issuer/authorize"
+set -x VANTAGE_OIDC_TOKEN_URL "https://your-issuer/oauth/token"
 set -x VANTAGE_OIDC_AUDIENCE "https://api.your-domain.example"
 set -x VANTAGE_OIDC_CLIENT_ID "YOUR_PUBLIC_SPA_CLIENT_ID"
 set -x VANTAGE_OIDC_REDIRECT_URI "https://app.your-domain.example/app"
