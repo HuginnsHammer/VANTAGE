@@ -5,6 +5,7 @@ small so a PostgreSQL repository can replace it without changing lifecycle polic
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 from contextlib import closing
 from datetime import UTC, datetime
@@ -98,11 +99,15 @@ class SQLiteFindingLedger:
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path).expanduser()
+        if self.path.is_symlink():
+            raise ValueError("Ledger path cannot be a symbolic link")
         if not self.path.parent.exists():
-            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         if self.path.exists() and self.path.is_dir():
             raise ValueError("Ledger path must be a file, not a directory")
         self._initialize()
+        # Finding evidence can be sensitive; restrict the database to its owner.
+        os.chmod(self.path, 0o600)
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=10)
