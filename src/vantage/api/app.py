@@ -12,8 +12,8 @@ import shutil
 import sqlite3
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from pathlib import Path
 from collections.abc import Iterator
+from pathlib import Path
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
@@ -173,7 +173,11 @@ def create_app(
 
     def scope_from_row(row: sqlite3.Row) -> ApprovedScope:
         keys = set(row.keys())
-        organization_id = row["asset_organization_id"] if "asset_organization_id" in keys else row["organization_id"]
+        organization_id = (
+            row["asset_organization_id"]
+            if "asset_organization_id" in keys
+            else row["organization_id"]
+        )
         asset_id = row["asset_id"] if "asset_id" in keys else row["id"]
         with connect() as db:
             scope = db.execute("SELECT * FROM scopes WHERE id=?", (row["scope_id"],)).fetchone()
@@ -447,7 +451,9 @@ def create_app(
             "state": row["state"], "created_at": row["created_at"],
             "started_at": row["started_at"], "completed_at": row["completed_at"],
             "error": row["error"],
-            "summary": json.loads(row["ledger_summary_json"]) if row["ledger_summary_json"] else None,
+            "summary": (
+                json.loads(row["ledger_summary_json"]) if row["ledger_summary_json"] else None
+            ),
         }
 
     @app.get("/app", include_in_schema=False)
