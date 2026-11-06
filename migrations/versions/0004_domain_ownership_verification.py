@@ -23,7 +23,7 @@ def upgrade() -> None:
         "assets",
         ["organization_id", "kind", "canonical_value"],
         unique=True,
-        postgresql_where=sa.text("environment_id IS NULL"),
+        postgresql_where=sa.text("environment_id IS NULL AND kind = 'domain'"),
     )
     op.create_table(
         "domain_verification_challenges",
