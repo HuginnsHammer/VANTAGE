@@ -394,9 +394,13 @@
     const copy = event.target.closest("[data-copy]");
     if (copy) {
       const target = document.getElementById(copy.dataset.copy);
-      navigator.clipboard?.writeText(target.textContent).then(() => {
+      if (!navigator.clipboard?.writeText) {
+        message(challengeMessage, "Clipboard access is unavailable. Select and copy the value manually.", true);
+        return;
+      }
+      navigator.clipboard.writeText(target.textContent).then(() => {
         copy.textContent = "Copied";
-        setTimeout(() => { copy.textContent = "Copy"; }, 1200);
+        window.setTimeout(() => { copy.textContent = "Copy"; }, 1200);
       }).catch(() => message(challengeMessage, "Clipboard access is unavailable. Select and copy the value manually.", true));
     }
   });
