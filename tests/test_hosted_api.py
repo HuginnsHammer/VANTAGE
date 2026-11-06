@@ -98,11 +98,18 @@ def test_hosted_identity_workspaces_and_tenant_isolation():
         assert all(item["id"] != organization["id"] for item in bob.json()["workspaces"])
     finally:
         with admin_engine.begin() as connection:
+            # The append-only audit trigger is disabled only for isolated test cleanup.
+            connection.execute(text(
+                "ALTER TABLE audit_events DISABLE TRIGGER audit_events_append_only"
+            ))
             if cleanup_org_ids:
                 connection.execute(
                     text("DELETE FROM organizations WHERE id::text = ANY(:ids)"),
                     {"ids": cleanup_org_ids},
                 )
+            connection.execute(text(
+                "ALTER TABLE audit_events ENABLE TRIGGER audit_events_append_only"
+            ))
             connection.execute(
                 text(
                     "DELETE FROM user_identities "
