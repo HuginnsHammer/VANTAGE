@@ -13,7 +13,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
+from collections.abc import Iterator
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
@@ -358,7 +358,8 @@ def create_app(
                 raise HTTPException(403, "CloudSentry is not permitted by this scope.")
             scan_id = uuid4()
             db.execute(
-                "INSERT INTO scans (id, asset_id, scanner_id, state, created_at) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO scans "
+                "(id, asset_id, scanner_id, state, created_at) VALUES (?, ?, ?, ?, ?)",
                 (str(scan_id), str(asset_id), "cloudsentry", "queued", utc_iso()),
             )
         background_tasks.add_task(run_scan, str(scan_id))
@@ -378,7 +379,9 @@ def create_app(
             "scanner_id": row["scanner_id"], "state": row["state"],
             "created_at": row["created_at"], "started_at": row["started_at"],
             "completed_at": row["completed_at"], "error": row["error"],
-            "summary": json.loads(row["ledger_summary_json"]) if row["ledger_summary_json"] else None,
+            "summary": (
+                json.loads(row["ledger_summary_json"]) if row["ledger_summary_json"] else None
+            ),
         } for row in rows]}
 
     @app.get("/api/v1/findings")
