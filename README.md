@@ -15,6 +15,10 @@ VANTAGE is a hybrid cybersecurity platform built around a secure control plane a
 - No arbitrary remote filesystem paths or shell commands from API requests.
 - Incomplete scans never silently resolve existing findings.
 
+## Website and interactive preview
+
+The public VANTAGE website includes an interactive browser-only exposure console. Explore sample assets and findings, filter observations, inspect evidence, import a local JSON report and export findings to CSV. The preview uses synthetic data and does not perform network scans or upload imported files. See [Website guide](docs/WEBSITE.md) for local preview and deployment details.
+
 ## Architecture
 
 See [Architecture](docs/ARCHITECTURE.md), [Threat Model](docs/THREAT_MODEL.md), [Scanner Integration](docs/SCANNER_INTEGRATION.md), [CLI guide](docs/CLI.md), [Roadmap](docs/ROADMAP.md), and [Architecture Decisions](docs/DECISIONS.md).
