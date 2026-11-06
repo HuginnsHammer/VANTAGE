@@ -693,7 +693,9 @@ def create_app(
             } for project in projects]}
 
     configured_root = os.environ.get("VANTAGE_APP_ROOT")
-    repository_root = Path(configured_root).expanduser().resolve() if configured_root else Path.cwd()
+    repository_root = (
+        Path(configured_root).expanduser().resolve() if configured_root else Path.cwd()
+    )
     if not (repository_root / "hosted.html").is_file():
         repository_root = Path(__file__).resolve().parents[3]
 
