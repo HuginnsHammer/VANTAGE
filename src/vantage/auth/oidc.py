@@ -47,7 +47,11 @@ class OIDCTokenVerifier:
             )
         except Exception as exc:
             raise ValueError("The supplied access token is invalid.") from exc
-        if not isinstance(claims.get("sub"), str) or not claims["sub"] or len(claims["sub"]) > 255:
+        if (
+            not isinstance(claims.get("sub"), str)
+            or not claims["sub"]
+            or len(claims["sub"]) > 255
+        ):
             raise ValueError("The access token subject is invalid.")
         if not isinstance(claims.get("iss"), str) or len(claims["iss"]) > 500:
             raise ValueError("The access token issuer is invalid.")
