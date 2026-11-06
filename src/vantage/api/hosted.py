@@ -10,19 +10,19 @@ import hmac
 import ipaddress
 import os
 import re
-from pathlib import Path
 import secrets
 from collections.abc import Callable
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import dns.exception
 import dns.resolver
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
