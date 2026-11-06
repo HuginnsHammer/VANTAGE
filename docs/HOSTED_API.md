@@ -60,10 +60,13 @@ Then configure the hosted API with the restricted runtime role:
 set -x VANTAGE_DATABASE_URL "postgresql+psycopg://vantage_app:...@db-host/vantage"
 set -x VANTAGE_OIDC_ISSUER "https://your-issuer/"
 set -x VANTAGE_OIDC_AUDIENCE "https://api.your-domain.example"
+set -x VANTAGE_OIDC_CLIENT_ID "YOUR_PUBLIC_SPA_CLIENT_ID"
+set -x VANTAGE_OIDC_REDIRECT_URI "https://app.your-domain.example/app"
 set -x VANTAGE_OIDC_JWKS_URL "https://your-issuer/.well-known/jwks.json"
 set -x VANTAGE_CORS_ORIGINS "https://app.your-domain.example"
 pip install -e ".[api,auth,postgres]"
 uvicorn vantage.api.hosted:create_app --factory --host 127.0.0.1 --port 8765
+# Open http://127.0.0.1:8765/app
 ~~~
 
 The API expects RS256-signed JWT access tokens whose issuer, audience, expiry,
@@ -78,7 +81,13 @@ callback yet. Configure an OIDC provider to issue access tokens for the VANTAGE
 API audience, then integrate its authorization-code + PKCE browser flow with
 the future hosted frontend. Do not put an OIDC client secret in browser code.
 The API accepts bearer tokens only; it does not accept unsigned development
-tokens or trust a user ID supplied by a client.
+tokens or trust a user ID supplied by a client. The hosted workspace UI uses
+Authorization Code + PKCE as a public browser client, stores the short-lived
+access token in sessionStorage only, and does not store refresh tokens or a
+client secret. Configure the exact callback URL and allowed web origin at the
+identity provider. The provider's token endpoint must allow browser CORS from
+the VANTAGE origin. The API accepts only RS256 JWT access tokens with the
+configured API audience; opaque access tokens are not supported.
 
 ## Current boundaries
 
