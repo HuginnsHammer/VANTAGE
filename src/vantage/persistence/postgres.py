@@ -221,7 +221,7 @@ def validate_runtime_role(engine: Engine) -> None:
                 "AND c.relname = ANY(:tables) "
                 "AND pg_get_userbyid(c.relowner) = current_user"
             ),
-            {"tables": list(TENANT_TABLES)},
+            {"tables": [*TENANT_TABLES, "user_identities"]},
         ).scalar_one()
         if owned:
             raise RuntimeError("VANTAGE runtime role must not own tenant tables")
