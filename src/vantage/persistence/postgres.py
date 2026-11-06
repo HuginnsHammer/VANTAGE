@@ -117,6 +117,14 @@ class AssetRecord(Base):
         CheckConstraint("kind IN ('domain', 'ip_address', 'web_application', 'api', 'cloud_resource', 'repository', 'local_workspace')", name="ck_asset_kind"),
         CheckConstraint("environment_id IS NULL OR project_id IS NOT NULL", name="ck_asset_environment_requires_project"),
         Index("ix_assets_org_kind", "organization_id", "kind"),
+        Index(
+            "uq_assets_org_kind_value_unscoped",
+            "organization_id",
+            "kind",
+            "canonical_value",
+            unique=True,
+            postgresql_where=text("environment_id IS NULL"),
+        ),
     )
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     organization_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
