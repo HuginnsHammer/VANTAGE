@@ -48,7 +48,9 @@ docker compose --env-file .env.dev -f docker-compose.dev.yml up --build
 The migration service runs Alembic and provisions vantage_app with
 NOSUPERUSER, NOBYPASSRLS and no ownership of tenant tables. The API uses only
 that restricted runtime role. Keycloak imports the vantage-dev realm and
-vantage-web public client with Authorization Code + PKCE (S256).
+vantage-web public client with Authorization Code + PKCE (S256). The auth and
+token endpoints are configured explicitly so the browser does not need to
+fetch provider discovery metadata cross-origin.
 
 Wait until the API container is running, then open:
 
