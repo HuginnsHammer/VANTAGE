@@ -148,7 +148,7 @@ class DomainVerificationChallenge(Base):
         ForeignKeyConstraint(
             ["organization_id", "requested_by"],
             ["memberships.organization_id", "memberships.user_id"],
-            ondelete="RESTRICT",
+            ondelete="CASCADE",
         ),
         CheckConstraint("method IN ('dns_txt')", name="ck_domain_challenge_method"),
         CheckConstraint(
