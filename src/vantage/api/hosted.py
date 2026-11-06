@@ -692,7 +692,11 @@ def create_app(
                 "slug": project.slug, "created_at": project.created_at.isoformat(),
             } for project in projects]}
 
-    repository_root = Path(__file__).resolve().parents[3]
+    configured_root = os.environ.get("VANTAGE_APP_ROOT")
+    repository_root = Path(configured_root).expanduser().resolve() if configured_root else Path.cwd()
+    if not (repository_root / "hosted.html").is_file():
+        repository_root = Path(__file__).resolve().parents[3]
+
     @app.get("/", include_in_schema=False)
     @app.get("/app", include_in_schema=False)
     def hosted_workspace() -> FileResponse:
