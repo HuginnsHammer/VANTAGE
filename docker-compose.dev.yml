@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.dev}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - vantage_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -27,7 +27,7 @@ services:
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./deploy/keycloak/vantage-realm.json:/opt/keycloak/data/import/vantage-realm.json:ro
       - keycloak_data:/opt/keycloak/data/h2
@@ -67,7 +67,7 @@ services:
       VANTAGE_OIDC_SCOPE: openid profile email
       VANTAGE_CORS_ORIGINS: http://localhost:8765
     ports:
-      - "8765:8000"
+      - "127.0.0.1:8765:8000"
     restart: unless-stopped
 
 volumes:
