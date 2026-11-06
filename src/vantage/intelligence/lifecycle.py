@@ -171,7 +171,9 @@ class SQLiteFindingLedger:
                     or finding.asset_id != report.asset_id
                     or finding.scanner_id != report.scanner_id
                 ):
-                    raise ValueError("Report contains a finding outside its tenant, asset or scanner")
+                    raise ValueError(
+                        "Report contains a finding outside its tenant, asset or scanner"
+                    )
                 key = finding.fingerprint
                 if key in seen:
                     continue
@@ -336,7 +338,8 @@ class SQLiteFindingLedger:
         return FindingRecord(
             id=UUID(row["id"]), organization_id=UUID(row["organization_id"]),
             asset_id=UUID(row["asset_id"]), scanner_id=row["scanner_id"],
-            fingerprint=row["fingerprint"], finding=Finding.model_validate_json(row["finding_json"]),
+            fingerprint=row["fingerprint"],
+            finding=Finding.model_validate_json(row["finding_json"]),
             status=row["status"], first_seen_at=datetime.fromisoformat(row["first_seen_at"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
             occurrence_count=row["occurrence_count"], risk_score=row["risk_score"],
