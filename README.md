@@ -42,8 +42,12 @@ See docs/HOSTED_API.md and docs/TENANCY.md.
 pip install -e ".[api,auth,postgres]"
 set -x VANTAGE_DATABASE_URL "postgresql+psycopg://vantage_app:...@db-host/vantage"
 set -x VANTAGE_OIDC_ISSUER "https://issuer.example/"
+set -x VANTAGE_OIDC_AUTHORIZATION_URL "https://issuer.example/authorize"
+set -x VANTAGE_OIDC_TOKEN_URL "https://issuer.example/oauth/token"
 set -x VANTAGE_OIDC_AUDIENCE "https://api.vantage.example"
 set -x VANTAGE_OIDC_JWKS_URL "https://issuer.example/.well-known/jwks.json"
+set -x VANTAGE_OIDC_CLIENT_ID "YOUR_PUBLIC_SPA_CLIENT_ID"
+set -x VANTAGE_OIDC_REDIRECT_URI "https://app.vantage.example/app"
 uvicorn vantage.api.hosted:create_app --factory --host 127.0.0.1 --port 8765
 ~~~
 
