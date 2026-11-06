@@ -703,4 +703,9 @@ def create_app(
         StaticFiles(directory=repository_root / "assets" / "hosted"),
         name="hosted-assets",
     )
+    app.mount(
+        "/assets",
+        StaticFiles(directory=repository_root / "assets"),
+        name="public-assets",
+    )
     return app
