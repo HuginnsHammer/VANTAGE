@@ -5,7 +5,7 @@ from sqlalchemy import ForeignKeyConstraint
 
 from vantage.persistence.postgres import (
     AssetRecord, Base, Environment, Organization, TENANT_TABLES,
-    create_postgres_engine, create_session_factory, set_tenant_context,
+    create_postgres_engine, set_tenant_context,
 )
 
 
@@ -42,11 +42,9 @@ def test_database_factory_rejects_non_postgres_urls() -> None:
 
 
 def test_rls_context_requires_an_active_transaction() -> None:
-    engine = create_postgres_engine("postgresql://user:pass@localhost/vantage")
-    session = create_session_factory(engine)()
-    try:
-        with pytest.raises(RuntimeError, match="active transaction"):
-            set_tenant_context(session, uuid4())
-    finally:
-        session.close()
-        engine.dispose()
+    class InactiveSession:
+        def in_transaction(self) -> bool:
+            return False
+
+    with pytest.raises(RuntimeError, match="active transaction"):
+        set_tenant_context(InactiveSession(), uuid4())
