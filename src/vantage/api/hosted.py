@@ -10,20 +10,20 @@ import hmac
 import ipaddress
 import os
 import re
-from pathlib import Path
 import secrets
 from collections.abc import Callable
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import dns.exception
 import dns.resolver
 from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -232,6 +232,26 @@ def create_app(
             allow_methods=["GET", "POST", "OPTIONS"],
             allow_headers=["Authorization", "Content-Type"],
         )
+
+    @app.middleware("http")
+    async def hosted_security_headers(request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Cache-Control"] = "no-store"
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        if request.url.path in {"/", "/app"} or request.url.path.startswith("/assets/"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; script-src 'self'; style-src 'self'; "
+                "img-src 'self' data:; font-src 'self'; "
+                "connect-src 'self' https: http://localhost:* http://127.0.0.1:*; "
+                "form-action 'self' https: http://localhost:*; "
+                "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+            )
+        return response
 
     bearer = HTTPBearer(auto_error=False)
 
@@ -682,5 +702,10 @@ def create_app(
         "/assets/hosted",
         StaticFiles(directory=repository_root / "assets" / "hosted"),
         name="hosted-assets",
+    )
+    app.mount(
+        "/assets",
+        StaticFiles(directory=repository_root / "assets"),
+        name="public-assets",
     )
     return app
