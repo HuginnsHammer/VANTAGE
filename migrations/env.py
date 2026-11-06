@@ -14,7 +14,11 @@ target_metadata = Base.metadata
 
 
 def database_url() -> str:
-    url = (os.environ.get("VANTAGE_MIGRATION_DATABASE_URL")\n           or os.environ.get("VANTAGE_DATABASE_URL")\n           or config.get_main_option("sqlalchemy.url"))
+    url = (
+        os.environ.get("VANTAGE_MIGRATION_DATABASE_URL")
+        or os.environ.get("VANTAGE_DATABASE_URL")
+        or config.get_main_option("sqlalchemy.url")
+    )\n           or config.get_main_option("sqlalchemy.url"))
     if not url.startswith(("postgresql://", "postgresql+psycopg://")):
         raise RuntimeError("VANTAGE_DATABASE_URL must point to PostgreSQL")
     if url.startswith("postgresql://"):
