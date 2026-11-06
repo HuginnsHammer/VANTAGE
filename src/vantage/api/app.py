@@ -153,10 +153,12 @@ def create_app(
     @app.middleware("http")
     async def loopback_only(request: Request, call_next):
         if request.url.path.startswith("/api/"):
-            host = request.client.host if request.client else ""
-            if host not in {"127.0.0.1", "::1", "localhost", "testclient"}:
+            client_host = request.client.host if request.client else ""
+            request_host = request.url.hostname
+            allowed_hosts = {"127.0.0.1", "::1", "localhost"}
+            if client_host not in allowed_hosts or request_host not in allowed_hosts:
                 return JSONResponse(
-                    {"detail": "The local control plane only accepts loopback clients."},
+                    {"detail": "The local control plane only accepts localhost requests."},
                     status_code=403,
                 )
         return await call_next(request)
