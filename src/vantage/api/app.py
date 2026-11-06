@@ -170,6 +170,9 @@ def create_app(
         )
 
     def scope_from_row(row: sqlite3.Row) -> ApprovedScope:
+        keys = set(row.keys())
+        organization_id = row["asset_organization_id"] if "asset_organization_id" in keys else row["organization_id"]
+        asset_id = row["asset_id"] if "asset_id" in keys else row["id"]
         with connect() as db:
             scope = db.execute("SELECT * FROM scopes WHERE id=?", (row["scope_id"],)).fetchone()
         if scope is None or scope["revoked_at"]:
@@ -178,8 +181,8 @@ def create_app(
             raise HTTPException(403, "The authorization scope has expired.")
         return ApprovedScope(
             id=UUID(scope["id"]),
-            organization_id=UUID(row["asset_organization_id"]),
-            asset_id=UUID(row["asset_id"]),
+            organization_id=UUID(organization_id),
+            asset_id=UUID(asset_id),
             approved_by=LOCAL_ACTOR_ID,
             authorization_reference=scope["authorization_reference"],
             approved_at=datetime.fromisoformat(scope["approved_at"]),
