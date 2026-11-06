@@ -123,7 +123,7 @@ class AssetRecord(Base):
             "kind",
             "canonical_value",
             unique=True,
-            postgresql_where=text("environment_id IS NULL"),
+            postgresql_where=text("environment_id IS NULL AND kind = 'domain'"),
         ),
     )
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
