@@ -47,6 +47,15 @@ vantage findings list --ledger ~/.local/state/vantage/findings.sqlite3
 
 VANTAGE requires an exact interactive confirmation of the resolved workspace path before starting. The first scanner is local static IaC/container analysis; it does not perform network reconnaissance or exploit testing. See the [CLI guide](docs/CLI.md) for lifecycle behavior and limitations.
 
+## Product model
+
+VANTAGE serves two audiences on one security platform:
+
+- **Individuals:** a self-service personal workspace to assess assets they own or are explicitly authorized to test, understand evidence-backed findings, and follow practical remediation guidance.
+- **Organizations:** the primary product audience, with isolated tenants, projects, environments, teams, governed scopes, continuous exposure management, remediation workflows and enterprise deployment controls.
+
+Personal and organization workspaces share the same security and authorization model. A personal account is not a shortcut around scope verification: users must still prove or explicitly attest to authority before assessments are enabled.
+
 ## Current engineering milestone
 
 - Canonical asset, approved-scope, scan, finding and evidence contracts.
@@ -56,6 +65,8 @@ VANTAGE requires an exact interactive confirmation of the resolved workspace pat
 - Optional SQLite finding ledger with stable identities, deduplication and event history.
 - Finding lifecycle states for open, reopened, resolved, accepted risk and suppressed.
 - Risk prioritization grounded in severity, confidence and asset criticality.
+- PostgreSQL tenant schema foundation for personal and organization workspaces, memberships, projects, environments, assets, approved scopes and audit events.
+- Database-enforced tenant row-level security policies and append-only audit-event trigger in the initial migration.
 - Incomplete assessments cannot resolve findings merely because they were absent.
 
-This is an early engineering foundation, not yet a production security platform. PostgreSQL tenant isolation, authenticated control plane, distributed workers, network scanning, verification workflows and enterprise controls remain under development.
+This is an early engineering foundation, not yet a production security platform. The PostgreSQL schema and migration are an initial foundation, not a deployed control plane. OIDC authentication, membership authorization services, PostgreSQL integration tests, API endpoints, distributed workers, network scanning, verification workflows and enterprise controls remain under development.

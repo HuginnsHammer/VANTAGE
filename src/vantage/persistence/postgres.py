@@ -10,10 +10,20 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index,
-    String, Text, UniqueConstraint, create_engine, text,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
+    text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -157,13 +167,15 @@ class AuditEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
-TENANT_TABLES = ("memberships", "projects", "environments", "assets", "approved_scopes", "audit_events")
+TENANT_TABLES = ("organizations", "memberships", "projects", "environments", "assets", "approved_scopes", "audit_events")
 
 
 def create_postgres_engine(database_url: str) -> Engine:
     """Create a PostgreSQL engine; refuse accidental SQLite or other URLs."""
     if not database_url.startswith(("postgresql://", "postgresql+psycopg://")):
         raise ValueError("VANTAGE control-plane persistence requires a PostgreSQL URL")
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
     return create_engine(database_url, pool_pre_ping=True, pool_recycle=1800)
 
 
@@ -172,7 +184,12 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 
 def set_tenant_context(session: Session, organization_id: UUID) -> None:
-    """Set transaction-local RLS context after membership authorization."""
+    """Set candidate organization context inside a transaction.
+
+    Use the requested organization only as an RLS row filter to look up the
+    authenticated user's own membership. Verify active membership before any
+    other tenant operation; the requested organization ID is not proof.
+    """
     if not session.in_transaction():
         raise RuntimeError("Tenant context must be set inside an active transaction")
     session.execute(

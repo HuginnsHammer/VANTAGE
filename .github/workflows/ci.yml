@@ -12,6 +12,23 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vantage_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d vantage_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      VANTAGE_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/vantage_test
+      VANTAGE_TEST_DATABASE_URL: postgresql+psycopg://vantage_app:vantage_app@localhost:5432/vantage_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,8 +38,18 @@ jobs:
       - name: Install project and development tools
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[postgres,dev]"
       - name: Lint
         run: ruff check .
+      - name: Validate PostgreSQL migration SQL
+        run: alembic upgrade head --sql
+      - name: Apply migrations and create restricted runtime role
+        run: |
+          alembic upgrade head
+          PGPASSWORD=postgres psql -h localhost -U postgres -d vantage_test -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE vantage_app LOGIN PASSWORD 'vantage_app' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS" \
+            -c "GRANT CONNECT ON DATABASE vantage_test TO vantage_app" \
+            -c "GRANT USAGE ON SCHEMA public TO vantage_app" \
+            -c "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO vantage_app"
       - name: Test
         run: pytest

@@ -4,13 +4,22 @@ import pytest
 from sqlalchemy import ForeignKeyConstraint
 
 from vantage.persistence.postgres import (
-    AssetRecord, Base, Environment, Organization, TENANT_TABLES,
-    create_postgres_engine, create_session_factory, set_tenant_context,
+    TENANT_TABLES,
+    AssetRecord,
+    Base,
+    Environment,
+    Organization,
+    create_postgres_engine,
+    set_tenant_context,
 )
 
 
 def test_personal_and_organization_accounts_share_one_tenant_model() -> None:
-    checks = " ".join(str(item.sqltext) for item in Organization.__table__.constraints if hasattr(item, "sqltext"))
+    checks = " ".join(
+        str(item.sqltext)
+        for item in Organization.__table__.constraints
+        if hasattr(item, "sqltext")
+    )
     assert "personal" in checks and "organization" in checks
 
 
@@ -20,15 +29,20 @@ def test_tenant_owned_tables_are_explicit() -> None:
 
 
 def test_environment_cannot_reference_a_project_from_another_tenant() -> None:
-    constraints = [c for c in Environment.__table__.constraints if isinstance(c, ForeignKeyConstraint)]
+    constraints = [
+        c for c in Environment.__table__.constraints if isinstance(c, ForeignKeyConstraint)
+    ]
     assert any(
-        [element.parent.name for element in constraint.elements] == ["organization_id", "project_id"]
+        [element.parent.name for element in constraint.elements]
+        == ["organization_id", "project_id"]
         for constraint in constraints
     )
 
 
 def test_asset_environment_relationship_is_tenant_and_project_scoped() -> None:
-    constraints = [c for c in AssetRecord.__table__.constraints if isinstance(c, ForeignKeyConstraint)]
+    constraints = [
+        c for c in AssetRecord.__table__.constraints if isinstance(c, ForeignKeyConstraint)
+    ]
     assert any(
         [element.parent.name for element in constraint.elements]
         == ["organization_id", "project_id", "environment_id"]
@@ -42,11 +56,9 @@ def test_database_factory_rejects_non_postgres_urls() -> None:
 
 
 def test_rls_context_requires_an_active_transaction() -> None:
-    engine = create_postgres_engine("postgresql://user:pass@localhost/vantage")
-    session = create_session_factory(engine)()
-    try:
-        with pytest.raises(RuntimeError, match="active transaction"):
-            set_tenant_context(session, uuid4())
-    finally:
-        session.close()
-        engine.dispose()
+    class InactiveSession:
+        def in_transaction(self) -> bool:
+            return False
+
+    with pytest.raises(RuntimeError, match="active transaction"):
+        set_tenant_context(InactiveSession(), uuid4())
