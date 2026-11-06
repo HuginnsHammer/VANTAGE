@@ -125,7 +125,46 @@ class AssetRecord(Base):
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     canonical_value: Mapped[str] = mapped_column(String(2048), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(255))
+    ownership_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class DomainVerificationChallenge(Base):
+    __tablename__ = "domain_verification_challenges"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "asset_id"],
+            ["assets.organization_id", "assets.id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "requested_by"],
+            ["memberships.organization_id", "memberships.user_id"],
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("method IN ('dns_txt')", name="ck_domain_challenge_method"),
+        CheckConstraint(
+            "status IN ('pending', 'verified', 'expired')",
+            name="ck_domain_challenge_status",
+        ),
+        Index(
+            "ix_domain_challenges_org_asset_created",
+            "organization_id",
+            "asset_id",
+            "created_at",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    asset_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    requested_by: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    method: Mapped[str] = mapped_column(String(20), nullable=False, default="dns_txt")
+    record_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ApprovedScopeRecord(Base):
@@ -167,7 +206,7 @@ class AuditEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
-TENANT_TABLES = ("organizations", "memberships", "projects", "environments", "assets", "approved_scopes", "audit_events")
+TENANT_TABLES = ("organizations", "memberships", "projects", "environments", "assets", "domain_verification_challenges", "approved_scopes", "audit_events")
 
 
 def create_postgres_engine(database_url: str) -> Engine:

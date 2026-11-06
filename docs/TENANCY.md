@@ -55,7 +55,7 @@ Current project creation is limited to owner, admin, security_analyst and
 operator. Member listing is limited to owner and admin. Invitations, role
 changes, suspension and SCIM are not yet implemented.
 
-## Approved assessment scope
+## Domain ownership verification\n\nAuthenticated workspace members can register canonicalized public domain names and request a short-lived DNS TXT challenge at _vantage-challenge.<domain>. VANTAGE stores only a hash of the challenge value, limits challenge creation, verifies the DNS response, records the verification timestamp and writes audit events. DNS verification establishes control of the domain namespace; it does not grant permission for active security testing. No network scanner is dispatched by these endpoints.\n\n## Approved assessment scope
 
 Approved scopes bind an organization, asset and approving membership. Active
 checks default to disabled. Scanner allowlists, expiry and revocation are stored

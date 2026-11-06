@@ -16,7 +16,7 @@ header, except the health endpoint.
 | GET | /api/v2/organizations/{id} | Read an accessible workspace |
 | GET | /api/v2/organizations/{id}/members | List members (owner/admin only) |
 | POST | /api/v2/organizations/{id}/projects | Create a project (owner/admin/analyst/operator) |
-| GET | /api/v2/organizations/{id}/projects | List projects |
+| GET | /api/v2/organizations/{id}/projects | List projects |\n| GET | /api/v2/organizations/{id}/assets | List registered assets |\n| POST | /api/v2/organizations/{id}/assets | Register a public domain |\n| POST | /api/v2/organizations/{id}/assets/{asset_id}/domain-verification | Create a DNS TXT challenge |\n| POST | /api/v2/organizations/{id}/assets/{asset_id}/domain-verification/verify | Verify domain ownership |
 
 Inaccessible organizations return 404 rather than disclosing whether the
 organization exists. User identity is keyed by the exact OIDC issuer and

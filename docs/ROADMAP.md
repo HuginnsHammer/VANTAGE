@@ -19,7 +19,7 @@
 ## M2 — first scanning capabilities
 - CloudSentry integration for IaC/container configuration.
 - Passive external asset inventory: DNS records, certificate transparency references and safe metadata enrichment.
-- Domain ownership verification (DNS TXT / HTTP well-known challenge).
+- [x] Domain registration and DNS TXT ownership verification challenges with expiry, rate limits and audit history.\n- [ ] HTTP well-known ownership challenge and automated verification scheduling.
 - Strict target canonicalization and public-IP/egress protections.
 - Evidence-backed HTTP/TLS posture checks only after scope verification.
 

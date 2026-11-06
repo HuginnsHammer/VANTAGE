@@ -16,7 +16,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_hosted_identity_workspaces_and_tenant_isolation():
+def test_hosted_identity_workspaces_and_tenant_isolation(monkeypatch):
     issuer = "https://vantage-test-issuer.example"
     alice_sub, bob_sub = uuid4().hex, uuid4().hex
     claims = {
@@ -81,6 +81,69 @@ def test_hosted_identity_workspaces_and_tenant_isolation():
             f"/api/v2/organizations/{organization['id']}/projects",
             headers=alice_headers,
         ).json()["items"][0]["slug"] == "production"
+
+
+        domain = client.post(
+            f"/api/v2/organizations/{organization['id']}/assets",
+            headers=alice_headers,
+            json={"domain": "Security.Example-Company.co.ke", "display_name": "Primary domain"},
+        )
+        assert domain.status_code == 201, domain.text
+        domain_asset = domain.json()
+        assert domain_asset["canonical_value"] == "security.example-company.co.ke"
+        assert domain_asset["ownership_verified"] is False
+
+        duplicate = client.post(
+            f"/api/v2/organizations/{organization['id']}/assets",
+            headers=alice_headers,
+            json={"domain": "security.example-company.co.ke"},
+        )
+        assert duplicate.status_code == 409
+
+        invalid_domain = client.post(
+            f"/api/v2/organizations/{organization['id']}/assets",
+            headers=alice_headers,
+            json={"domain": "https://127.0.0.1/admin"},
+        )
+        assert invalid_domain.status_code == 422
+
+        challenge = client.post(
+            f"/api/v2/organizations/{organization['id']}/assets/{domain_asset['id']}/domain-verification",
+            headers=alice_headers,
+        )
+        assert challenge.status_code == 201, challenge.text
+        challenge_data = challenge.json()
+        assert challenge_data["record_type"] == "TXT"
+        assert challenge_data["record_name"] == "_vantage-challenge.security.example-company.co.ke"
+
+        class FakeTXT:
+            def __init__(self, value):
+                self.strings = (value.encode("utf-8"),)
+
+        class FakeResolver:
+            def resolve(self, qname, rdtype, lifetime, search):
+                assert qname == challenge_data["record_name"]
+                assert rdtype == "TXT"
+                assert lifetime == 5
+                assert search is False
+                return [FakeTXT(challenge_data["record_value"])]
+
+        monkeypatch.setattr("vantage.api.hosted.dns.resolver.Resolver", FakeResolver)
+        verified = client.post(
+            f"/api/v2/organizations/{organization['id']}/assets/{domain_asset['id']}/domain-verification/verify",
+            headers=alice_headers,
+        )
+        assert verified.status_code == 200, verified.text
+        assert verified.json()["status"] == "verified"
+
+        assets = client.get(
+            f"/api/v2/organizations/{organization['id']}/assets",
+            headers=alice_headers,
+        )
+        assert assets.status_code == 200
+        assert next(
+            item for item in assets.json()["items"] if item["id"] == domain_asset["id"]
+        )["ownership_verified"] is True
 
         denied = client.get(
             f"/api/v2/organizations/{organization['id']}",
