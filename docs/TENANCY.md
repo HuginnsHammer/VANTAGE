@@ -30,7 +30,7 @@ bearer tokens from an already configured OIDC provider.
 Every tenant-owned row carries organization_id. Composite foreign keys prevent
 cross-organization project, environment, asset and approved-scope relationships.
 
-PostgreSQL RLS is enabled and forced for organizations, memberships, projects,
+PostgreSQL RLS is enabled and forced for user identities, organizations, memberships, projects,
 environments, assets, approved scopes and audit events. The API sets
 transaction-local organization and actor context. An organization ID supplied
 by a client is only a candidate selector: the service must verify that the
@@ -44,7 +44,7 @@ list that user's workspaces without granting access to other members or tenant
 resources. With organization context, normal organization isolation applies.
 The write policy still requires the organization context.
 
-The hosted API refuses PostgreSQL superuser, BYPASSRLS and tenant-table-owner
+Identity records are visible only to the authenticated identity itself or to members of the same active organization context. Identity IDs are deterministic from the verified issuer/subject pair so the API can establish self-context before reading or provisioning a profile. The hosted API refuses PostgreSQL superuser, BYPASSRLS and tenant-table-owner
 runtime roles. Run migrations with a separate owner/migration role. RLS is
 defense in depth; service-layer role checks remain mandatory.
 
@@ -78,7 +78,8 @@ future operational work.
 ## Migrations and database roles
 
 Migration 0001 creates the tenant schema and initial RLS policies. Migration
-0002 allows authenticated actors to enumerate their own memberships.
+0002 allows authenticated actors to enumerate their own memberships. Migration
+0003 adds actor/organization-scoped visibility to identity records.
 
 Use VANTAGE_MIGRATION_DATABASE_URL for Alembic and VANTAGE_DATABASE_URL for
 the restricted hosted runtime connection. Never use the migration/admin
