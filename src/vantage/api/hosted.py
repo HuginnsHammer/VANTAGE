@@ -243,7 +243,7 @@ def create_app(
         response.headers["Cache-Control"] = "no-store"
         if request.url.scheme == "https":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        if request.url.path in {"/", "/app"} or request.url.path.startswith("/assets/hosted/"):
+        if request.url.path in {"/", "/app"} or request.url.path.startswith("/assets/"):
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; script-src 'self'; style-src 'self'; "
                 "img-src 'self' data:; font-src 'self'; "
