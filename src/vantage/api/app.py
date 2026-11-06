@@ -18,6 +18,7 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from vantage.domain.models import ApprovedScope, Asset, AssetKind, ScanRequest
@@ -147,6 +148,7 @@ def create_app(
     app.state.db_path = db_path
     app.state.ledger = ledger
     app.state.cloudsentry_executable = executable
+    os.chmod(db_path, 0o600)
 
     @app.middleware("http")
     async def loopback_only(request: Request, call_next):
@@ -457,6 +459,7 @@ def create_app(
     def public_site():
         return FileResponse(ROOT / "index.html")
 
+    app.mount("/assets", StaticFiles(directory=ROOT / "assets"), name="assets")
     return app
 
 
