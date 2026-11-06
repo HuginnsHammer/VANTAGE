@@ -63,6 +63,8 @@ def personal_workspace_id(issuer: str, subject: str) -> UUID:
 
 def identity_from_claims(session: Session, claims: dict[str, Any]) -> UserIdentity:
     issuer, subject = claims["iss"], claims["sub"]
+    identity_id = uuid5(NAMESPACE_URL, f"vantage-identity:{issuer}:{subject}")
+    set_tenant_context(session, None, identity_id)
     identity = session.scalar(select(UserIdentity).where(
         UserIdentity.issuer == issuer,
         UserIdentity.subject == subject,
@@ -71,6 +73,7 @@ def identity_from_claims(session: Session, claims: dict[str, Any]) -> UserIdenti
     display_name = claims.get("name") or claims.get("preferred_username")
     if identity is None:
         identity = UserIdentity(
+            id=identity_id,
             issuer=issuer,
             subject=subject,
             email=email[:320] if isinstance(email, str) else None,
