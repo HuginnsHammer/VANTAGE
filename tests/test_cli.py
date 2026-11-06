@@ -1,7 +1,14 @@
+import json
 from uuid import uuid4
 
 from vantage.cli import main
-from vantage.domain.models import ScanReport, ScanState
+from vantage.domain.models import (
+    Confidence,
+    Finding,
+    FindingSeverity,
+    ScanReport,
+    ScanState,
+)
 
 
 def test_scanners_list(capsys):
@@ -85,8 +92,6 @@ def test_workspace_scan_exports_report_without_overwriting(
         ]
     ) == 2
 
-from vantage.domain.models import Confidence, Finding, FindingSeverity
-
 
 def test_cli_ledger_persists_and_deduplicates_across_scans(
     tmp_path, monkeypatch, capsys
@@ -136,7 +141,7 @@ def test_cli_ledger_persists_and_deduplicates_across_scans(
     assert "1 reopened" not in second_output
 
     assert main(["findings", "list", "--ledger", str(ledger)]) == 0
-    records = __import__("json").loads(capsys.readouterr().out)
+    records = json.loads(capsys.readouterr().out)
     assert len(records) == 1
     assert records[0]["occurrence_count"] == 2
     assert records[0]["status"] == "open"
