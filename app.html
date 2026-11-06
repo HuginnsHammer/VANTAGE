@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1010">
+  <title>VANTAGE · Exposure workspace</title>
+  <link rel="icon" href="assets/vantage-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/console.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/"><img src="assets/vantage-mark.svg" alt=""><span>VANTAGE<small>EXPOSURE INTELLIGENCE</small></span></a>
+      <div class="workspace-label">WORKSPACE</div>
+      <div class="workspace-chip"><span class="pulse"></span><span>Personal security workspace</span></div>
+      <nav aria-label="Workspace navigation">
+        <a class="active" href="#overview">◫ <span>Overview</span></a>
+        <a href="#assets">◇ <span>Assets</span></a>
+        <a href="#findings">⌁ <span>Findings</span></a>
+        <a href="#scans">◷ <span>Assessments</span></a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="local-tag">LOCAL CONTROL PLANE <b>●</b></div>
+        <p>Data stays on this machine. Only explicitly registered local workspaces can be assessed.</p>
+        <a href="/">← Back to VANTAGE</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><span class="eyebrow">SECURITY POSTURE / PERSONAL</span><h1>Exposure overview</h1></div>
+        <div class="top-actions"><span id="connection" class="connection"><i></i> Connecting…</span><button id="refresh" class="button ghost">↻ Refresh</button></div>
+      </header>
+
+      <section id="offline" class="notice warning" hidden>
+        <strong>Local control plane not connected</strong>
+        <p>This interface needs the VANTAGE API running on this machine. Start it using the command in the setup instructions below, then refresh.</p>
+        <code>uvicorn vantage.api.app:app --host 127.0.0.1 --port 8765</code>
+        <a href="https://github.com/HuginnsHammer/VANTAGE#run-the-local-web-application" target="_blank" rel="noreferrer">Setup guide ↗</a>
+      </section>
+
+      <section id="overview" class="metrics">
+        <article class="metric"><span>REGISTERED ASSETS</span><strong id="metric-assets">—</strong><small>Local workspaces</small></article>
+        <article class="metric"><span>ASSESSMENTS</span><strong id="metric-scans">—</strong><small>All recorded runs</small></article>
+        <article class="metric"><span>ACTIVE FINDINGS</span><strong id="metric-findings">—</strong><small>Open or reopened</small></article>
+        <article class="metric"><span>CRITICAL / HIGH</span><strong id="metric-priority">—</strong><small>Needs attention</small></article>
+      </section>
+
+      <section id="assets" class="panel">
+        <div class="section-head"><div><span class="eyebrow">SCOPE MANAGEMENT</span><h2>Assets</h2><p>Register a workspace you own or are explicitly authorized to assess.</p></div><button id="show-add" class="button primary">＋ Add workspace</button></div>
+        <div id="add-form" class="add-form" hidden>
+          <div class="form-grid">
+            <label>Local workspace path<input id="workspace-path" placeholder="/home/you/project" autocomplete="off"></label>
+            <label>Authorization reference<input id="authorization-reference" placeholder="e.g. SELF-ASSESSMENT-2026-01" autocomplete="off"></label>
+          </div>
+          <button id="preview-path" class="button ghost">Validate path</button>
+          <div id="preview-result" class="preview-result" hidden>
+            <p id="preview-copy"></p>
+            <label>Confirm exact resolved path<input id="confirmation" autocomplete="off" placeholder="AUTHORIZE /absolute/path"></label>
+            <label>Display name (optional)<input id="display-name" placeholder="My application"></label>
+            <button id="register-workspace" class="button primary">Register authorized workspace</button>
+          </div>
+          <p class="fine-print">VANTAGE does not scan a path just because it is registered. Each assessment is a separate action. The first available engine performs local IaC and container configuration analysis only; no network probing.</p>
+          <div id="form-error" class="error" role="alert"></div>
+        </div>
+        <div id="assets-list" class="asset-list empty">Connect the local control plane to load assets.</div>
+      </section>
+
+      <div class="lower-grid">
+        <section id="findings" class="panel">
+          <div class="section-head compact"><div><span class="eyebrow">RISK REGISTER</span><h2>Findings</h2></div><select id="finding-filter" aria-label="Filter findings"><option value="">All statuses</option><option value="open">Open</option><option value="reopened">Reopened</option><option value="resolved">Resolved</option><option value="accepted_risk">Accepted risk</option><option value="suppressed">Suppressed</option></select></div>
+          <div id="findings-list" class="finding-list empty">No findings recorded yet.</div>
+        </section>
+        <section id="scans" class="panel">
+          <div class="section-head compact"><div><span class="eyebrow">EXECUTION HISTORY</span><h2>Assessments</h2></div></div>
+          <div id="scans-list" class="scan-list empty">No assessments have been run.</div>
+        </section>
+      </div>
+      <footer>VANTAGE LOCAL · Single-operator mode · Evidence-led results · No arbitrary network targets</footer>
+    </main>
+  </div>
+  <dialog id="finding-dialog" class="finding-dialog">
+    <button class="dialog-close" id="close-dialog" aria-label="Close">×</button>
+    <div id="finding-detail"></div>
+  </dialog>
+  <script src="assets/js/console.js" defer></script>
+</body>
+</html>
