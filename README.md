@@ -17,26 +17,36 @@ VANTAGE is a hybrid cybersecurity platform built around a secure control plane a
 
 ## Architecture
 
-See [Architecture](docs/ARCHITECTURE.md), [Threat Model](docs/THREAT_MODEL.md), [Scanner Integration](docs/SCANNER_INTEGRATION.md), [Roadmap](docs/ROADMAP.md), and [Architecture Decisions](docs/DECISIONS.md).
+See [Architecture](docs/ARCHITECTURE.md), [Threat Model](docs/THREAT_MODEL.md), [Scanner Integration](docs/SCANNER_INTEGRATION.md), [CLI guide](docs/CLI.md), [Roadmap](docs/ROADMAP.md), and [Architecture Decisions](docs/DECISIONS.md).
 
-## Development
+## Quick start
 
-Python 3.12+.
+Python 3.12+ and a separately installed CloudSentry executable are required for local workspace assessments.
 
 ```fish
 python -m venv .venv
 source .venv/bin/activate.fish
 pip install -e ".[dev]"
-pytest
-ruff check .
+vantage scanners list
 ```
 
-## Initial milestone
+Run a local assessment only against a workspace you own or are explicitly authorized to assess:
+
+```fish
+vantage scan workspace ~/CloudSentry \
+  --authorization-reference "ENGAGEMENT-OR-TICKET-ID" \
+  --output cloudsentry-report.json
+```
+
+VANTAGE requires an exact interactive confirmation of the resolved workspace path before starting. The first CLI is local static IaC/container analysis; it does not perform network reconnaissance or exploit testing. See the [CLI guide](docs/CLI.md) for limitations and exit codes.
+
+## Current engineering milestone
 
 - Canonical asset, approved-scope, scan, finding and evidence contracts.
-- Scanner plugin protocol and registry.
-- Scope-enforcing scan coordinator.
+- Scanner plugin protocol, registry and scope-enforcing coordinator.
 - CloudSentry report normalization that preserves partial-scan status.
-- Tests for authorization gates and report normalization.
+- Operator CLI for listing scanners and running explicitly confirmed local workspace scans.
+- JSON report export and a deliberately vulnerable training fixture.
+- Automated tests for authorization gates, report normalization and CLI behavior.
 
-See [ROADMAP.md](docs/ROADMAP.md) for planned implementation stages.
+This is an early engineering foundation, not yet a production security platform. Durable storage, authenticated API, distributed workers, network scanning, tenant isolation, verification workflows and enterprise controls remain under development.

@@ -1,0 +1,10 @@
+# INTENTIONALLY INSECURE TRAINING FIXTURE — DO NOT DEPLOY
+services:
+  training:
+    build: .
+    privileged: true
+    user: "0:0"
+    ports:
+      - "0.0.0.0:2375:2375"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
