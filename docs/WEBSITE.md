@@ -32,7 +32,7 @@ The importer accepts finding severities `critical`, `high`, `medium` and `low`. 
 
 The `.github/workflows/pages.yml` workflow validates HTML structure, required assets and JavaScript syntax on website pull requests. After changes reach `main`, it publishes the repository root to GitHub Pages.
 
-Enable GitHub Pages with **Build and deployment → GitHub Actions** in repository settings if it has not already been enabled. A custom domain can be configured later.
+Before the first deployment, a repository administrator must enable Pages once: open **Settings → Pages** at https://github.com/HuginnsHammer/VANTAGE/settings/pages, set **Build and deployment → Source** to **GitHub Actions**, and save if prompted. The workflow token can deploy to an enabled Pages site but does not have repository-administration permission to create the Pages site automatically. After this one-time setting is enabled, pushes to `main` run validation and deployment automatically. A custom domain can be configured later.
 
 ## Security and product boundaries
 
