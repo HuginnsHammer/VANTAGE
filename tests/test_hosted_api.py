@@ -104,7 +104,10 @@ def test_hosted_identity_workspaces_and_tenant_isolation():
                     {"ids": cleanup_org_ids},
                 )
             connection.execute(
-                text("DELETE FROM user_identities WHERE issuer = :issuer AND subject = ANY(:subjects)"),
+                text(
+                    "DELETE FROM user_identities "
+                    "WHERE issuer = :issuer AND subject = ANY(:subjects)"
+                ),
                 {"issuer": issuer, "subjects": cleanup_subjects},
             )
         admin_engine.dispose()
