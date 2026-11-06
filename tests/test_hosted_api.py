@@ -50,6 +50,7 @@ def test_hosted_identity_workspaces_and_tenant_isolation(monkeypatch):
         assert app_page.headers["content-security-policy"]
         assert client.get("/assets/hosted/hosted.js").status_code == 200
         assert client.get("/assets/hosted/hosted.css").status_code == 200
+        assert client.get("/assets/vantage-mark.svg").status_code == 200
         assert client.get("/api/v2/auth/config").json()["configured"] is False
         monkeypatch.setenv("VANTAGE_OIDC_ISSUER", issuer)
         monkeypatch.setenv("VANTAGE_OIDC_AUDIENCE", "https://api.vantage.test")
