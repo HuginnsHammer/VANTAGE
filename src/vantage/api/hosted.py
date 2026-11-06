@@ -413,6 +413,228 @@ def create_app(
         except IntegrityError as exc:
             raise HTTPException(409, "That project slug is already in use.") from exc
 
+
+    @app.get("/api/v2/organizations/{organization_id}/assets")
+    def list_assets(
+        organization_id: UUID,
+        identity: UserIdentityView = Depends(current_identity),
+    ) -> dict[str, Any]:
+        with session_factory.begin() as session:
+            require_membership(session, organization_id, identity.id)
+            assets = session.scalars(
+                select(AssetRecord)
+                .where(AssetRecord.organization_id == organization_id)
+                .order_by(AssetRecord.created_at.desc())
+            ).all()
+            return {"items": [{
+                "id": str(asset.id),
+                "kind": asset.kind,
+                "canonical_value": asset.canonical_value,
+                "display_name": asset.display_name,
+                "project_id": str(asset.project_id) if asset.project_id else None,
+                "ownership_verified": asset.ownership_verified_at is not None,
+                "ownership_verified_at": (
+                    asset.ownership_verified_at.isoformat()
+                    if asset.ownership_verified_at else None
+                ),
+                "created_at": asset.created_at.isoformat(),
+            } for asset in assets]}
+
+    @app.post("/api/v2/organizations/{organization_id}/assets", status_code=201)
+    def create_domain_asset(
+        organization_id: UUID,
+        payload: DomainAssetCreate,
+        identity: UserIdentityView = Depends(current_identity),
+    ) -> dict[str, Any]:
+        try:
+            domain = canonicalize_domain(payload.domain)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        with session_factory.begin() as session:
+            membership = require_membership(session, organization_id, identity.id)
+            if membership.role not in {"owner", "admin", "security_analyst", "operator"}:
+                raise HTTPException(403, "Insufficient workspace permissions.")
+            if payload.project_id is not None:
+                project = session.get(Project, payload.project_id)
+                if project is None or project.organization_id != organization_id:
+                    raise HTTPException(404, "Project not found.")
+            existing = session.scalar(select(AssetRecord).where(
+                AssetRecord.organization_id == organization_id,
+                AssetRecord.kind == "domain",
+                AssetRecord.canonical_value == domain,
+                AssetRecord.environment_id.is_(None),
+            ))
+            if existing is not None:
+                raise HTTPException(409, "This domain is already registered in the workspace.")
+            asset = AssetRecord(
+                organization_id=organization_id,
+                project_id=payload.project_id,
+                kind="domain",
+                canonical_value=domain,
+                display_name=(payload.display_name or domain).strip()[:255],
+            )
+            session.add(asset)
+            session.flush()
+            session.add(AuditEvent(
+                organization_id=organization_id,
+                actor_user_id=identity.id,
+                action="asset.domain.registered",
+                resource_type="asset",
+                resource_id=str(asset.id),
+                details={"domain": domain},
+            ))
+            session.flush()
+            return {
+                "id": str(asset.id),
+                "kind": asset.kind,
+                "canonical_value": asset.canonical_value,
+                "display_name": asset.display_name,
+                "ownership_verified": False,
+                "created_at": asset.created_at.isoformat(),
+            }
+
+    @app.post(
+        "/api/v2/organizations/{organization_id}/assets/{asset_id}/domain-verification",
+        status_code=201,
+    )
+    def create_domain_verification(
+        organization_id: UUID,
+        asset_id: UUID,
+        identity: UserIdentityView = Depends(current_identity),
+    ) -> dict[str, Any]:
+        with session_factory.begin() as session:
+            membership = require_membership(session, organization_id, identity.id)
+            if membership.role not in {"owner", "admin", "security_analyst", "operator"}:
+                raise HTTPException(403, "Insufficient workspace permissions.")
+            asset = session.get(AssetRecord, asset_id)
+            if asset is None or asset.kind != "domain":
+                raise HTTPException(404, "Domain asset not found.")
+            if asset.ownership_verified_at is not None:
+                return {"status": "verified", "asset_id": str(asset.id)}
+            now = utc_now()
+            recent_count = session.scalar(select(func.count()).select_from(
+                DomainVerificationChallenge
+            ).where(
+                DomainVerificationChallenge.organization_id == organization_id,
+                DomainVerificationChallenge.asset_id == asset_id,
+                DomainVerificationChallenge.created_at >= now - timedelta(hours=1),
+            ))
+            if recent_count is not None and recent_count >= 5:
+                raise HTTPException(429, "Too many verification challenges. Try again later.")
+            token = secrets.token_urlsafe(32)
+            record_name = f"_vantage-challenge.{asset.canonical_value}"
+            record_value = f"vantage-verification={token}"
+            challenge = DomainVerificationChallenge(
+                organization_id=organization_id,
+                asset_id=asset_id,
+                requested_by=identity.id,
+                method="dns_txt",
+                record_name=record_name,
+                token_hash=hashlib.sha256(record_value.encode("utf-8")).hexdigest(),
+                status="pending",
+                created_at=now,
+                expires_at=now + timedelta(minutes=30),
+            )
+            session.add(challenge)
+            session.flush()
+            session.add(AuditEvent(
+                organization_id=organization_id,
+                actor_user_id=identity.id,
+                action="asset.domain_verification.challenge_created",
+                resource_type="asset",
+                resource_id=str(asset_id),
+                details={"method": "dns_txt", "challenge_id": str(challenge.id)},
+            ))
+            session.flush()
+            return {
+                "challenge_id": str(challenge.id),
+                "status": "pending",
+                "method": "dns_txt",
+                "record_type": "TXT",
+                "record_name": record_name,
+                "record_value": record_value,
+                "expires_at": challenge.expires_at.isoformat(),
+            }
+
+    @app.post(
+        "/api/v2/organizations/{organization_id}/assets/{asset_id}/domain-verification/verify"
+    )
+    def verify_domain_ownership(
+        organization_id: UUID,
+        asset_id: UUID,
+        identity: UserIdentityView = Depends(current_identity),
+    ) -> dict[str, Any]:
+        with session_factory.begin() as session:
+            membership = require_membership(session, organization_id, identity.id)
+            if membership.role not in {"owner", "admin", "security_analyst", "operator"}:
+                raise HTTPException(403, "Insufficient workspace permissions.")
+            asset = session.get(AssetRecord, asset_id)
+            if asset is None or asset.kind != "domain":
+                raise HTTPException(404, "Domain asset not found.")
+            if asset.ownership_verified_at is not None:
+                return {
+                    "status": "verified",
+                    "asset_id": str(asset.id),
+                    "verified_at": asset.ownership_verified_at.isoformat(),
+                }
+            challenge = session.scalar(
+                select(DomainVerificationChallenge)
+                .where(
+                    DomainVerificationChallenge.organization_id == organization_id,
+                    DomainVerificationChallenge.asset_id == asset_id,
+                    DomainVerificationChallenge.status == "pending",
+                )
+                .order_by(DomainVerificationChallenge.created_at.desc())
+                .limit(1)
+            )
+            if challenge is None:
+                raise HTTPException(404, "No pending domain verification challenge exists.")
+            now = utc_now()
+            if challenge.expires_at <= now:
+                challenge.status = "expired"
+                session.flush()
+                return {"status": "expired", "asset_id": str(asset.id)}
+            resolver = dns.resolver.Resolver()
+            try:
+                answer = resolver.resolve(challenge.record_name, "TXT", lifetime=5)
+            except (dns.exception.DNSException, OSError) as exc:
+                raise HTTPException(
+                    409,
+                    "The DNS TXT challenge was not found. Publish the record and try again.",
+                ) from exc
+            values = {
+                b"".join(record.strings).decode("utf-8", errors="replace")
+                for record in answer
+            }
+            matching = any(
+                hmac.compare_digest(
+                    hashlib.sha256(value.encode("utf-8")).hexdigest(),
+                    challenge.token_hash,
+                )
+                for value in values
+            )
+            if not matching:
+                raise HTTPException(409, "The DNS TXT record does not match this challenge.")
+            challenge.status = "verified"
+            challenge.verified_at = now
+            asset.ownership_verified_at = now
+            session.add(AuditEvent(
+                organization_id=organization_id,
+                actor_user_id=identity.id,
+                action="asset.domain_verification.verified",
+                resource_type="asset",
+                resource_id=str(asset_id),
+                details={"method": "dns_txt", "challenge_id": str(challenge.id)},
+            ))
+            session.flush()
+            return {
+                "status": "verified",
+                "asset_id": str(asset.id),
+                "domain": asset.canonical_value,
+                "verified_at": now.isoformat(),
+                "notice": "Ownership is verified. This does not authorize active security testing.",
+            }
+
     @app.get("/api/v2/organizations/{organization_id}/projects")
     def list_projects(
         organization_id: UUID,
