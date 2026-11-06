@@ -1,13 +1,13 @@
 """Add domain ownership verification challenges and verified asset timestamps.
 
-Revision ID: 0004_domain_ownership_verification
+Revision ID: 0004_domain_verify
 Revises: 0003_identity_visibility
 """
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = "0004_domain_ownership_verification"
+revision = "0004_domain_verify"
 down_revision = "0003_identity_visibility"
 branch_labels = None
 depends_on = None
