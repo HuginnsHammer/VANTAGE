@@ -60,6 +60,12 @@ vantage findings set-status FINDING-UUID \
 
 Supported manual dispositions are `open`, `accepted_risk` and `suppressed`.
 A finding that reappears after a completed scan resolved it is marked `reopened`.
+Inspect the append-only event history for a finding:
+
+```fish
+vantage findings history FINDING-UUID \
+  --ledger ~/.local/state/vantage/findings.sqlite3
+```
 
 ## Lifecycle and risk semantics
 
