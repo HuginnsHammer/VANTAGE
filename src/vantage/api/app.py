@@ -10,9 +10,9 @@ import json
 import os
 import shutil
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from collections.abc import Iterator
 from pathlib import Path
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
