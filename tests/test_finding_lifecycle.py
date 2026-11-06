@@ -3,10 +3,16 @@ from uuid import uuid4
 import pytest
 
 from vantage.domain.models import (
-    Confidence, Finding, FindingSeverity, ScanReport, ScanState,
+    Confidence,
+    Finding,
+    FindingSeverity,
+    ScanReport,
+    ScanState,
 )
 from vantage.intelligence.lifecycle import (
-    FindingStatus, SQLiteFindingLedger, calculate_risk_score,
+    FindingStatus,
+    SQLiteFindingLedger,
+    calculate_risk_score,
 )
 
 
