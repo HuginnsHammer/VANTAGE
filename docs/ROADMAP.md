@@ -11,7 +11,8 @@
 - [x] OIDC subject identity model and organization membership/role contracts.
 - [x] Project, environment, asset, approved-scope and audit-event persistence schema.
 - [x] Composite tenant-aware foreign keys, PostgreSQL row-level security policies and append-only audit-event trigger.
-- [x] RS256 OIDC bearer-token verification and authenticated control-plane API.\n- [x] Personal workspace provisioning, organization creation, membership listing and role-gated project APIs.
+- [x] RS256 OIDC bearer-token verification and authenticated control-plane API.
+- [x] Personal workspace provisioning, organization creation, membership listing and role-gated project APIs.
 - [x] PostgreSQL integration tests prove cross-tenant reads and writes are denied using a restricted runtime role.
 - [ ] Durable scan queue, idempotency, retries, cancellation and quotas.
 
