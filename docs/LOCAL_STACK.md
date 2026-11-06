@@ -27,9 +27,10 @@ From the VANTAGE repository root:
 ~~~fish
 cp .env.dev.example .env.dev
 openssl rand -hex 24
+nano .env.dev
 ~~~
 
-Generate three separate random values and place them in .env.dev:
+Generate three separate random values, then open .env.dev in an editor and replace the placeholders:
 
 - POSTGRES_PASSWORD
 - KEYCLOAK_ADMIN_PASSWORD
