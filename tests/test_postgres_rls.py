@@ -46,8 +46,10 @@ def tenant_fixture():
         slug="production", name="Production",
     )
     with Session(admin_engine) as session:
+        session.add_all([org_a, org_b, identity])
+        session.commit()
+    with Session(admin_engine) as session:
         session.add_all([
-            org_a, org_b, identity,
             Membership(
                 organization_id=org_a.id, user_id=identity.id,
                 role="owner", status="active",
