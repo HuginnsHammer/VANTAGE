@@ -18,7 +18,6 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import dns.exception
 import dns.resolver
-
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
