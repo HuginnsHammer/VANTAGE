@@ -56,6 +56,7 @@ services:
       keycloak:
         condition: service_started
     environment:
+      VANTAGE_APP_ROOT: /app
       VANTAGE_DATABASE_URL: postgresql+psycopg://vantage_app:${VANTAGE_RUNTIME_DB_PASSWORD}@db:5432/vantage
       VANTAGE_OIDC_ISSUER: http://localhost:8080/realms/vantage-dev
       VANTAGE_OIDC_AUDIENCE: vantage-api
