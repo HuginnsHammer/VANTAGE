@@ -32,7 +32,7 @@ with session.begin():
 
 The setting is transaction-local and clears on commit/rollback. If it is absent, the policy returns no tenant rows. The production runtime database role must not be a superuser, must not have BYPASSRLS, and should not own the protected tables. Use a separate migration role for schema changes.
 
-RLS is defense in depth. Service-layer authorization is still required, especially for membership changes, role checks and scope approval. PostgreSQL integration tests are a release gate; schema-level unit tests alone do not prove deployed isolation.
+RLS is defense in depth. Service-layer authorization is still required, especially for membership changes, role checks and scope approval. CI now applies the migration to PostgreSQL 16 and tests tenant reads, cross-tenant writes, composite foreign keys and transaction-local context using a restricted runtime role. These tests must expand alongside future API and service-layer authorization code.
 
 ## Assessment authorization
 
@@ -68,5 +68,4 @@ The initial migration is \`0001_tenant_control_plane\`. Do not run it against a 
 - Organization invitations, membership management and role authorization services.
 - API endpoints or frontend.
 - PostgreSQL-backed finding lifecycle repository (the existing lifecycle ledger remains local SQLite).
-- PostgreSQL integration tests against a real server.
 - Durable scan queue, scanner-node enrollment or production deployment hardening.
