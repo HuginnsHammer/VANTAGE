@@ -108,10 +108,12 @@ def ensure_personal_workspace(
                     id=org_id, slug=f"p-{org_id.hex}", name=label[:200],
                     kind="personal", status="active",
                 ))
+                session.flush()
                 session.add(Membership(
                     organization_id=org_id, user_id=identity_id,
                     role="owner", status="active",
                 ))
+                session.flush()
                 session.add(AuditEvent(
                     organization_id=org_id, actor_user_id=identity_id,
                     action="workspace.personal.provisioned",
@@ -276,10 +278,12 @@ def create_app(
                     kind="organization", status="active",
                 )
                 session.add(organization)
+                session.flush()
                 session.add(Membership(
                     organization_id=organization_id, user_id=identity.id,
                     role="owner", status="active",
                 ))
+                session.flush()
                 session.add(AuditEvent(
                     organization_id=organization_id, actor_user_id=identity.id,
                     action="workspace.organization.created",
