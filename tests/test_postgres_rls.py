@@ -154,3 +154,27 @@ def test_actor_context_lists_only_that_actors_memberships(tenant_fixture) -> Non
             assert {item.organization_id for item in memberships} == {org_a, org_b}
     finally:
         engine.dispose()
+
+
+def test_identity_rows_are_visible_only_to_self_or_org_members(tenant_fixture) -> None:
+    org_a, _, user_id, _ = tenant_fixture
+    engine = create_postgres_engine(APP_URL)
+    factory = create_session_factory(engine)
+    try:
+        with factory.begin() as session:
+            set_tenant_context(session, None, user_id)
+            own_identity = session.scalar(
+                select(UserIdentity).where(UserIdentity.id == user_id)
+            )
+            assert own_identity is not None
+
+        with factory.begin() as session:
+            set_tenant_context(session, None, uuid4())
+            assert session.scalars(select(UserIdentity)).all() == []
+
+        with factory.begin() as session:
+            set_tenant_context(session, org_a, uuid4())
+            visible = session.scalars(select(UserIdentity)).all()
+            assert [item.id for item in visible] == [user_id]
+    finally:
+        engine.dispose()
