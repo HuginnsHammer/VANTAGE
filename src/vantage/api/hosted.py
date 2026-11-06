@@ -10,6 +10,7 @@ import hmac
 import ipaddress
 import os
 import re
+from pathlib import Path
 import secrets
 from collections.abc import Callable
 from datetime import timedelta
@@ -19,6 +20,8 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 import dns.exception
 import dns.resolver
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -288,6 +291,25 @@ def create_app(
             # Do not reveal whether an inaccessible organization exists.
             raise HTTPException(404, "Workspace not found.")
         return membership
+
+
+    @app.get("/api/v2/auth/config")
+    def auth_config() -> dict[str, Any]:
+        issuer = os.environ.get("VANTAGE_OIDC_ISSUER", "")
+        client_id = os.environ.get("VANTAGE_OIDC_CLIENT_ID", "")
+        audience = os.environ.get("VANTAGE_OIDC_AUDIENCE", "")
+        redirect_uri = os.environ.get("VANTAGE_OIDC_REDIRECT_URI", "")
+        if not redirect_uri:
+            public_base = os.environ.get("VANTAGE_PUBLIC_BASE_URL", "").rstrip("/")
+            redirect_uri = f"{public_base}/app" if public_base else ""
+        return {
+            "configured": bool(issuer and client_id and audience and redirect_uri),
+            "issuer": issuer,
+            "client_id": client_id,
+            "audience": audience,
+            "redirect_uri": redirect_uri,
+            "scope": os.environ.get("VANTAGE_OIDC_SCOPE", "openid profile email"),
+        }
 
     @app.get("/api/v2/health")
     def health() -> dict[str, str]:
@@ -650,4 +672,15 @@ def create_app(
                 "slug": project.slug, "created_at": project.created_at.isoformat(),
             } for project in projects]}
 
+    repository_root = Path(__file__).resolve().parents[3]
+    @app.get("/", include_in_schema=False)
+    @app.get("/app", include_in_schema=False)
+    def hosted_workspace() -> FileResponse:
+        return FileResponse(repository_root / "hosted.html")
+
+    app.mount(
+        "/assets/hosted",
+        StaticFiles(directory=repository_root / "assets" / "hosted"),
+        name="hosted-assets",
+    )
     return app
