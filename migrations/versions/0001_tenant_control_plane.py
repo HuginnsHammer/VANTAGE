@@ -136,8 +136,8 @@ def upgrade() -> None:
         tenant_column = "id" if table == "organizations" else "organization_id"
         op.execute(
             f'CREATE POLICY tenant_isolation ON "{table}" '
-            f'USING ("{tenant_column}" = NULLIF(current_setting(\\'vantage.organization_id\\', true), \\'\\')::uuid) '
-            f'WITH CHECK ("{tenant_column}" = NULLIF(current_setting(\\'vantage.organization_id\\', true), \\'\\')::uuid)'
+            f"USING (\"{tenant_column}\" = NULLIF(current_setting('vantage.organization_id', true), '')::uuid) "
+            f"WITH CHECK (\"{tenant_column}\" = NULLIF(current_setting('vantage.organization_id', true), '')::uuid)"
         )
 
     # Audit records are append-only for the application role.
