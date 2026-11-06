@@ -136,14 +136,30 @@ def test_hosted_identity_workspaces_and_tenant_isolation(monkeypatch):
                 self.strings = (value.encode("utf-8"),)
 
         class FakeResolver:
+            def __init__(self, value):
+                self.value = value
+
             def resolve(self, qname, rdtype, lifetime, search):
                 assert qname == challenge_data["record_name"]
                 assert rdtype == "TXT"
                 assert lifetime == 5
                 assert search is False
-                return [FakeTXT(challenge_data["record_value"])]
+                return [FakeTXT(self.value)]
 
-        monkeypatch.setattr("vantage.api.hosted.dns.resolver.Resolver", FakeResolver)
+        monkeypatch.setattr(
+            "vantage.api.hosted.dns.resolver.Resolver",
+            lambda: FakeResolver("vantage-verification=incorrect"),
+        )
+        wrong_record = client.post(
+            f"/api/v2/organizations/{organization['id']}/assets/{domain_asset['id']}/domain-verification/verify",
+            headers=alice_headers,
+        )
+        assert wrong_record.status_code == 409
+
+        monkeypatch.setattr(
+            "vantage.api.hosted.dns.resolver.Resolver",
+            lambda: FakeResolver(challenge_data["record_value"]),
+        )
         verified = client.post(
             f"/api/v2/organizations/{organization['id']}/assets/{domain_asset['id']}/domain-verification/verify",
             headers=alice_headers,
