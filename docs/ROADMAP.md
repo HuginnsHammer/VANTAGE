@@ -7,11 +7,13 @@
 - Unit tests for authorization gates and partial-scan handling.
 
 ## M1 — scanner platform foundations
-- PostgreSQL schema and Alembic migrations.
-- Durable scan queue, idempotency, retries, cancellation and quotas.
-- Authenticated OIDC control-plane API.
-- Asset, project, environment and scope management.
-- Tenant isolation tests against PostgreSQL.
+- [x] PostgreSQL schema and Alembic migration foundation for personal and organization tenants.
+- [x] OIDC subject identity model and organization membership/role contracts.
+- [x] Project, environment, asset, approved-scope and audit-event persistence schema.
+- [x] Composite tenant-aware foreign keys, PostgreSQL row-level security policies and append-only audit-event trigger.
+- [ ] Authenticated OIDC control-plane API and membership authorization service.
+- [ ] PostgreSQL integration tests that prove cross-tenant reads and writes are denied.
+- [ ] Durable scan queue, idempotency, retries, cancellation and quotas.
 
 ## M2 — first scanning capabilities
 - CloudSentry integration for IaC/container configuration.
