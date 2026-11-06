@@ -35,18 +35,27 @@ Run a local assessment only against a workspace you own or are explicitly author
 ```fish
 vantage scan workspace ~/CloudSentry \
   --authorization-reference "ENGAGEMENT-OR-TICKET-ID" \
+  --ledger ~/.local/state/vantage/findings.sqlite3 \
   --output cloudsentry-report.json
 ```
 
-VANTAGE requires an exact interactive confirmation of the resolved workspace path before starting. The first CLI is local static IaC/container analysis; it does not perform network reconnaissance or exploit testing. See the [CLI guide](docs/CLI.md) for limitations and exit codes.
+Review the findings across repeated scans:
+
+```fish
+vantage findings list --ledger ~/.local/state/vantage/findings.sqlite3
+```
+
+VANTAGE requires an exact interactive confirmation of the resolved workspace path before starting. The first scanner is local static IaC/container analysis; it does not perform network reconnaissance or exploit testing. See the [CLI guide](docs/CLI.md) for lifecycle behavior and limitations.
 
 ## Current engineering milestone
 
 - Canonical asset, approved-scope, scan, finding and evidence contracts.
 - Scanner plugin protocol, registry and scope-enforcing coordinator.
 - CloudSentry report normalization that preserves partial-scan status.
-- Operator CLI for listing scanners and running explicitly confirmed local workspace scans.
-- JSON report export and a deliberately vulnerable training fixture.
-- Automated tests for authorization gates, report normalization and CLI behavior.
+- Operator CLI for explicitly confirmed local workspace assessments.
+- Optional SQLite finding ledger with stable identities, deduplication and event history.
+- Finding lifecycle states for open, reopened, resolved, accepted risk and suppressed.
+- Risk prioritization grounded in severity, confidence and asset criticality.
+- Incomplete assessments cannot resolve findings merely because they were absent.
 
-This is an early engineering foundation, not yet a production security platform. Durable storage, authenticated API, distributed workers, network scanning, tenant isolation, verification workflows and enterprise controls remain under development.
+This is an early engineering foundation, not yet a production security platform. PostgreSQL tenant isolation, authenticated control plane, distributed workers, network scanning, verification workflows and enterprise controls remain under development.
