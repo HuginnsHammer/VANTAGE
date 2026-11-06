@@ -59,6 +59,8 @@ services:
       VANTAGE_APP_ROOT: /app
       VANTAGE_DATABASE_URL: postgresql+psycopg://vantage_app:${VANTAGE_RUNTIME_DB_PASSWORD}@db:5432/vantage
       VANTAGE_OIDC_ISSUER: http://localhost:8080/realms/vantage-dev
+      VANTAGE_OIDC_AUTHORIZATION_URL: http://localhost:8080/realms/vantage-dev/protocol/openid-connect/auth
+      VANTAGE_OIDC_TOKEN_URL: http://localhost:8080/realms/vantage-dev/protocol/openid-connect/token
       VANTAGE_OIDC_AUDIENCE: vantage-api
       VANTAGE_OIDC_JWKS_URL: http://keycloak:8080/realms/vantage-dev/protocol/openid-connect/certs
       VANTAGE_OIDC_CLIENT_ID: vantage-web
