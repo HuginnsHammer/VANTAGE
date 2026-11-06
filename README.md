@@ -69,4 +69,4 @@ Personal and organization workspaces share the same security and authorization m
 - Database-enforced tenant row-level security policies and append-only audit-event trigger in the initial migration.
 - Incomplete assessments cannot resolve findings merely because they were absent.
 
-This is an early engineering foundation, not yet a production security platform. The PostgreSQL schema and migration are an initial foundation, not a deployed control plane. OIDC authentication, membership authorization services, PostgreSQL integration tests, API endpoints, distributed workers, network scanning, verification workflows and enterprise controls remain under development.
+This is an early engineering foundation, not yet a production security platform. The PostgreSQL schema and migration are an initial foundation, not a deployed control plane. OIDC authentication, membership authorization services, API endpoints, distributed workers, network scanning, verification workflows and enterprise controls remain under development.
