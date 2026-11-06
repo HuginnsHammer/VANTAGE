@@ -138,3 +138,19 @@ def test_tenant_context_does_not_leak_between_transactions(tenant_fixture) -> No
             assert session.scalars(select(Organization)).all() == []
     finally:
         engine.dispose()
+
+
+
+def test_actor_context_lists_only_that_actors_memberships(tenant_fixture) -> None:
+    org_a, org_b, user_id, _ = tenant_fixture
+    engine = create_postgres_engine(APP_URL)
+    factory = create_session_factory(engine)
+    try:
+        with factory.begin() as session:
+            set_tenant_context(session, None, user_id)
+            memberships = session.scalars(
+                select(Membership).where(Membership.user_id == user_id)
+            ).all()
+            assert {item.organization_id for item in memberships} == {org_a, org_b}
+    finally:
+        engine.dispose()
