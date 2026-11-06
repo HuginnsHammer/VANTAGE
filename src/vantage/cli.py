@@ -66,6 +66,12 @@ def _parser() -> argparse.ArgumentParser:
     listing.add_argument("--ledger", type=Path, required=True)
     listing.add_argument("--workspace", type=Path, help="Filter to one local workspace")
 
+    history = finding_commands.add_parser(
+        "history", help="Show the lifecycle event history for a finding"
+    )
+    history.add_argument("finding_id", type=UUID)
+    history.add_argument("--ledger", type=Path, required=True)
+
     disposition = finding_commands.add_parser(
         "set-status", help="Record an analyst disposition with an audit reason"
     )
@@ -237,6 +243,12 @@ def _list_findings(args: argparse.Namespace) -> int:
     return 0
 
 
+def _finding_history(args: argparse.Namespace) -> int:
+    events = SQLiteFindingLedger(args.ledger.expanduser()).events(args.finding_id)
+    print(json.dumps([event.model_dump(mode="json") for event in events], indent=2))
+    return 0
+
+
 def _set_finding_status(args: argparse.Namespace) -> int:
     record = SQLiteFindingLedger(args.ledger.expanduser()).set_status(
         args.finding_id, args.status, reason=args.reason
@@ -260,6 +272,8 @@ def main(argv: list[str] | None = None) -> int:
             return _list_findings(args)
         if args.command == "findings" and args.findings_command == "set-status":
             return _set_finding_status(args)
+        if args.command == "findings" and args.findings_command == "history":
+            return _finding_history(args)
     except (
         OSError,
         ValueError,
