@@ -18,7 +18,7 @@ def test_workspace_requires_exact_confirmation_and_persists(tmp_path):
     workspace.mkdir()
     (workspace / "Dockerfile").write_text("FROM alpine:latest\n", encoding="utf-8")
     app = create_app(data_dir=tmp_path / "state", cloudsentry_executable="missing-cloudsentry")
-    client = TestClient(app, client=("127.0.0.1", 12345))
+    client = TestClient(app, client=("127.0.0.1", 12345), headers={"host": "127.0.0.1"})
 
     preview = client.post("/api/v1/assets/preview", json={"path": str(workspace)})
     assert preview.status_code == 200
@@ -47,7 +47,7 @@ def test_workspace_requires_exact_confirmation_and_persists(tmp_path):
 
 def test_workspace_preview_rejects_missing_path(tmp_path):
     app = create_app(data_dir=tmp_path / "state")
-    client = TestClient(app, client=("127.0.0.1", 12345))
+    client = TestClient(app, client=("127.0.0.1", 12345), headers={"host": "127.0.0.1"})
     response = client.post("/api/v1/assets/preview", json={"path": str(tmp_path / "missing")})
     assert response.status_code == 422
 
