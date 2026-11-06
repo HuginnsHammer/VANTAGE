@@ -1,0 +1,75 @@
+name: VANTAGE Website
+
+on:
+  pull_request:
+    paths:
+      - "index.html"
+      - "assets/**"
+      - ".github/workflows/pages.yml"
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "assets/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate website structure and local assets
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class Validator(HTMLParser):
+              def error(self, message):
+                  raise ValueError(message)
+
+          page = Path("index.html")
+          source = page.read_text(encoding="utf-8")
+          parser = Validator(convert_charrefs=True)
+          parser.feed(source)
+          parser.close()
+          for asset in ("assets/css/site.css", "assets/js/site.js", "assets/vantage-mark.svg"):
+              if not Path(asset).is_file():
+                  raise SystemExit(f"Missing website asset: {asset}")
+          for required in ('id="main"', 'id="console"', 'id="individuals"', 'id="enterprise"'):
+              if required not in source:
+                  raise SystemExit(f"Missing required page section: {required}")
+          print("Website HTML and required assets validated.")
+          PY
+      - name: Validate JavaScript syntax
+        run: node --check assets/js/site.js
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
