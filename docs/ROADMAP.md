@@ -12,7 +12,7 @@
 - [x] Project, environment, asset, approved-scope and audit-event persistence schema.
 - [x] Composite tenant-aware foreign keys, PostgreSQL row-level security policies and append-only audit-event trigger.
 - [ ] Authenticated OIDC control-plane API and membership authorization service.
-- [ ] PostgreSQL integration tests that prove cross-tenant reads and writes are denied.
+- [x] PostgreSQL integration tests prove cross-tenant reads and writes are denied using a restricted runtime role.
 - [ ] Durable scan queue, idempotency, retries, cancellation and quotas.
 
 ## M2 — first scanning capabilities
