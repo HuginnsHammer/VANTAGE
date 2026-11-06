@@ -47,10 +47,27 @@ set -x VANTAGE_OIDC_JWKS_URL "https://issuer.example/.well-known/jwks.json"
 uvicorn vantage.api.hosted:create_app --factory --host 127.0.0.1 --port 8765
 ~~~
 
-The API provisions a personal workspace on first authenticated request,
-creates organization workspaces, lists memberships, and manages projects.
-It accepts verified OIDC bearer tokens; a browser login flow and public
-deployment are not included yet.
+The hosted workspace UI at /app supports OIDC Authorization Code + PKCE sign-in, personal and organization workspaces, project creation, domain inventory and DNS TXT ownership verification. It requires a configured OIDC provider and RS256 JWT access tokens. Hosted scanning and public deployment are not yet enabled.
+
+
+## Run the hosted workspace locally
+
+For a full browser sign-in experience, VANTAGE includes a local-only Docker Compose
+stack with PostgreSQL, Keycloak and the hosted API. It provisions a restricted
+runtime database role and imports a development OIDC realm.
+
+See docs/LOCAL_STACK.md. This stack is for development only; do not reuse its
+HTTP endpoints, Keycloak realm or credentials in production.
+
+~~~fish
+cp .env.dev.example .env.dev
+# Replace the three placeholder passwords with separate random values.
+docker compose --env-file .env.dev -f docker-compose.dev.yml up --build
+~~~
+
+Open http://localhost:8765/app and register a local development account through
+Keycloak. The hosted UI can create workspaces, projects, register public domains
+and verify DNS TXT ownership. It does not yet run hosted security scans.
 
 ## CLI
 
@@ -89,5 +106,4 @@ docs/CLI.md, docs/ROADMAP.md and docs/TENANCY.md.
 The PostgreSQL schema, row-level-security migrations and OIDC-authenticated
 workspace API are implemented foundations, not a deployed service. Browser
 login, invitations and membership administration, hosted frontend integration,
-distributed workers, external asset verification, network scanning,
-verification workflows and enterprise controls remain under development.
+distributed workers, hosted scanning, continuous monitoring, verification workflows and enterprise controls remain under development.
