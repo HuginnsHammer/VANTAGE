@@ -164,6 +164,8 @@ def create_postgres_engine(database_url: str) -> Engine:
     """Create a PostgreSQL engine; refuse accidental SQLite or other URLs."""
     if not database_url.startswith(("postgresql://", "postgresql+psycopg://")):
         raise ValueError("VANTAGE control-plane persistence requires a PostgreSQL URL")
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
     return create_engine(database_url, pool_pre_ping=True, pool_recycle=1800)
 
 
