@@ -20,5 +20,6 @@
     "The current scanner is local static IaC/container analysis only; passive external discovery, web/API checks and active network assessment are not yet available.",
     "PostgreSQL currently stores the tenant/control-plane foundation; the finding lifecycle still uses a local SQLite adapter.",
     "Distributed scanner nodes, durable job queue, attack-path analysis, remediation verification, enterprise SSO/SCIM and production operations controls remain future work."
-  ]
+  ],
+  "repository": "HuginnsHammer/VANTAGE"
 }
