@@ -1,0 +1,74 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vantage
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - vantage_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d vantage"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.2
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env.dev}
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: "http://localhost:8080"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./deploy/keycloak/vantage-realm.json:/opt/keycloak/data/import/vantage-realm.json:ro
+      - keycloak_data:/opt/keycloak/data/h2
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      VANTAGE_MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@db:5432/vantage
+      VANTAGE_RUNTIME_DB_PASSWORD: ${VANTAGE_RUNTIME_DB_PASSWORD:?Set VANTAGE_RUNTIME_DB_PASSWORD in .env.dev}
+    command: ["sh", "-c", "alembic upgrade head && python scripts/provision_runtime_role.py"]
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_started
+    environment:
+      VANTAGE_DATABASE_URL: postgresql+psycopg://vantage_app:${VANTAGE_RUNTIME_DB_PASSWORD}@db:5432/vantage
+      VANTAGE_OIDC_ISSUER: http://localhost:8080/realms/vantage-dev
+      VANTAGE_OIDC_AUDIENCE: vantage-api
+      VANTAGE_OIDC_JWKS_URL: http://keycloak:8080/realms/vantage-dev/protocol/openid-connect/certs
+      VANTAGE_OIDC_CLIENT_ID: vantage-web
+      VANTAGE_OIDC_REDIRECT_URI: http://localhost:8765/app
+      VANTAGE_PUBLIC_BASE_URL: http://localhost:8765
+      VANTAGE_OIDC_SCOPE: openid profile email
+      VANTAGE_CORS_ORIGINS: http://localhost:8765
+    ports:
+      - "8765:8000"
+    restart: unless-stopped
+
+volumes:
+  vantage_pgdata:
+  keycloak_data:
