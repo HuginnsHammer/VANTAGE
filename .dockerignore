@@ -11,8 +11,6 @@ htmlcov
 *.py[cod]
 .env
 .env.*
-!.env.example
-!.env.dev.example
 *.sqlite3
 *.db
 node_modules
