@@ -183,16 +183,45 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
-def set_tenant_context(session: Session, organization_id: UUID) -> None:
-    """Set candidate organization context inside a transaction.
-
-    Use the requested organization only as an RLS row filter to look up the
-    authenticated user's own membership. Verify active membership before any
-    other tenant operation; the requested organization ID is not proof.
-    """
+def set_tenant_context(
+    session: Session,
+    organization_id: UUID | None,
+    actor_id: UUID | None = None,
+) -> None:
+    """Set transaction-local RLS context after authenticating the actor."""
     if not session.in_transaction():
         raise RuntimeError("Tenant context must be set inside an active transaction")
     session.execute(
-        text("SELECT set_config('vantage.organization_id', :organization_id, true)"),
-        {"organization_id": str(organization_id)},
+        text(
+            "SELECT set_config('vantage.organization_id', :organization_id, true), "
+            "set_config('vantage.actor_id', :actor_id, true)"
+        ),
+        {
+            "organization_id": str(organization_id) if organization_id else "",
+            "actor_id": str(actor_id) if actor_id else "",
+        },
     )
+
+
+def validate_runtime_role(engine: Engine) -> None:
+    """Refuse database identities that can bypass tenant row-level security."""
+    with engine.connect() as connection:
+        role = connection.execute(
+            text("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user")
+        ).one()
+        if role.rolsuper or role.rolbypassrls:
+            raise RuntimeError(
+                "VANTAGE hosted API refuses PostgreSQL superuser or BYPASSRLS roles"
+            )
+        owned = connection.execute(
+            text(
+                "SELECT count(*) FROM pg_class c "
+                "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                "WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p') "
+                "AND c.relname = ANY(:tables) "
+                "AND pg_get_userbyid(c.relowner) = current_user"
+            ),
+            {"tables": list(TENANT_TABLES)},
+        ).scalar_one()
+        if owned:
+            raise RuntimeError("VANTAGE runtime role must not own tenant tables")
