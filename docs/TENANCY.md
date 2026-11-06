@@ -1,71 +1,99 @@
 # VANTAGE tenancy and PostgreSQL foundation
 
-## Audience model
+## Account model
 
 VANTAGE uses one tenant model for two account kinds:
 
-- \`personal\`: a private workspace for an individual.
-- \`organization\`: a workspace for a company, institution or team.
+- Personal workspaces for individuals.
+- Organization workspaces for companies, institutions and teams.
 
-An individual may belong to multiple organizations. Personal workspaces and organizations use the same asset, project, environment, approved-scope and finding concepts. Organization workspaces add team membership and governance; they do not weaken the authorization rules used by personal accounts.
+Both use the same assets, projects, environments, approved scopes and findings.
+Organization workspaces add membership and governance; they do not weaken
+authorization requirements for personal users.
 
-## Identity and authorization
+## Identity and authentication
 
-\`user_identities\` stores the stable OpenID Connect issuer/subject pair. Email is profile metadata, never an identity key. Membership roles are constrained to owner, admin, security analyst, operator and viewer. Membership status is explicit.
+The hosted API accepts RS256-signed OIDC JWT access tokens. It validates the
+configured issuer, audience, signature, expiry, issued-at time and subject
+against the configured JWKS endpoint. The stable identity key is the exact
+issuer/subject pair. Email is profile metadata and is stored only when the
+provider asserts email_verified=true.
 
-The hosted API now validates RS256 OIDC access tokens against a configured issuer, audience and JWKS endpoint. It keys identity by the exact issuer/subject pair; email is stored only when the provider asserts `email_verified=true`. Browser authorization-code login and provider-specific client configuration remain deployment work. The API never accepts a client-supplied user ID as identity.
+The API does not trust a client-supplied user ID. A personal workspace is
+provisioned deterministically on the first authenticated API request. The
+browser authorization-code + PKCE login flow and provider-specific client
+configuration are not yet implemented; the hosted API currently accepts
+bearer tokens from an already configured OIDC provider.
 
-A client-supplied organization ID is an untrusted selector, not proof of membership. Inside a transaction, the API may first set that candidate organization as the RLS row filter, then query membership using both that organization ID and the authenticated user ID. It must reject absent, invited or suspended memberships before performing any other tenant operation. The organization selector cannot authorize access by itself.
+## Tenant authorization and row-level security
 
-## Tenant isolation
+Every tenant-owned row carries organization_id. Composite foreign keys prevent
+cross-organization project, environment, asset and approved-scope relationships.
 
-Every tenant-owned row carries an \`organization_id\`. Composite foreign keys ensure that a project, environment, asset, approved scope and audit record cannot be attached across organizations even if an application bug supplies mismatched identifiers.
+PostgreSQL RLS is enabled and forced for organizations, memberships, projects,
+environments, assets, approved scopes and audit events. The API sets
+transaction-local organization and actor context. An organization ID supplied
+by a client is only a candidate selector: the service must verify that the
+authenticated identity has an active membership before accessing workspace
+resources. Inaccessible workspaces return 404.
 
-The initial migration enables and forces PostgreSQL row-level security for organizations, memberships, projects, environments, assets, approved scopes and audit events. Tenant queries must run inside a transaction after membership authorization:
+Membership RLS has a narrow additional policy: with actor context but no
+organization context, the caller can enumerate only membership rows whose
+user_id equals the authenticated identity. This allows the /me endpoint to
+list that user's workspaces without granting access to other members or tenant
+resources. With organization context, normal organization isolation applies.
+The write policy still requires the organization context.
 
-\`\`\`python
-with session.begin():
-    # First validate the authenticated user's membership for this org.
-    set_tenant_context(session, organization_id, authenticated_user_id)
-    # All subsequent tenant queries in this transaction are RLS-filtered.
-\`\`\`
+The hosted API refuses PostgreSQL superuser, BYPASSRLS and tenant-table-owner
+runtime roles. Run migrations with a separate owner/migration role. RLS is
+defense in depth; service-layer role checks remain mandatory.
 
-Both settings are transaction-local and clear on commit/rollback. Membership RLS permits a user-context query to enumerate only that authenticated user's own memberships; organization records and all other tenant data still require a matching organization context. If context is absent, policies fail closed. The production runtime database role must not be a superuser, must not have BYPASSRLS, and should not own the protected tables. Use a separate migration role for schema changes.
+## Roles
 
-RLS is defense in depth. Service-layer authorization is still required, especially for membership changes, role checks and scope approval. CI applies migrations to PostgreSQL 16 and tests tenant reads, cross-tenant writes, composite foreign keys and transaction-local context using a restricted runtime role. The hosted API refuses superuser, BYPASSRLS and tenant-table-owner database identities. These tests must expand alongside future API and service-layer authorization code.
+Membership roles are owner, admin, security_analyst, operator and viewer.
+Current project creation is limited to owner, admin, security_analyst and
+operator. Member listing is limited to owner and admin. Invitations, role
+changes, suspension and SCIM are not yet implemented.
 
-## Assessment authorization
+## Approved assessment scope
 
-Approved scopes bind an organization, asset and approving membership. Active checks default to disabled. Scanner allowlists, expiry and revocation are stored with the scope. The scan coordinator must continue to enforce scanner capability and explicit approval before dispatch.
+Approved scopes bind an organization, asset and approving membership. Active
+checks default to disabled. Scanner allowlists, expiry and revocation are stored
+with the scope. The scan coordinator must continue enforcing scanner capability
+and explicit approval before dispatch.
 
-A personal account is not blanket authorization to scan arbitrary internet assets. Ownership verification and safe target validation are required before external assessment.
+A personal account is not blanket authorization to scan arbitrary internet
+assets. Ownership verification and safe target validation are required before
+external assessment.
 
 ## Audit events
 
-Audit events are tenant-scoped and the migration installs a database trigger rejecting UPDATE and DELETE. The application should insert events for membership changes, scope approval/revocation, scan actions, finding dispositions and administrative changes. Database owners/superusers can bypass application protections; production operations must tightly control those credentials and export audit data to an independently protected destination.
+Audit events are tenant-scoped and append-only at the database trigger layer.
+The current hosted API records personal/organization workspace provisioning,
+organization creation and project creation. Membership changes, scope
+approval/revocation, scan actions and finding dispositions must be added as
+those workflows are implemented. Audit exports and independent retention are
+future operational work.
 
-## Migration and dependencies
+## Migrations and database roles
 
-Install the PostgreSQL extra:
+Migration 0001 creates the tenant schema and initial RLS policies. Migration
+0002 allows authenticated actors to enumerate their own memberships.
 
-\`\`\`fish
-pip install -e ".[postgres,dev]"
-\`\`\`
+Use VANTAGE_MIGRATION_DATABASE_URL for Alembic and VANTAGE_DATABASE_URL for
+the restricted hosted runtime connection. Never use the migration/admin
+connection for the public API.
 
-Set the connection URL without committing secrets:
+See docs/HOSTED_API.md for exact setup and grant commands.
 
-\`\`\`fish
-set -x VANTAGE_DATABASE_URL "postgresql+psycopg://USER:PASSWORD@HOST:5432/DATABASE"
-alembic upgrade head
-\`\`\`
+## Not yet implemented
 
-The initial migration is \`0001_tenant_control_plane\`. Do not run it against a production database until a PostgreSQL integration environment, backup, rollback plan and independent review are in place.
-
-## Explicitly not implemented yet
-
-- OIDC login/callback/token validation.
-- User registration and automatic personal-workspace provisioning.
-- Organization invitations, membership management and role authorization services.
-- API endpoints or frontend.
-- PostgreSQL-backed finding lifecycle repository (the existing lifecycle ledger remains local SQLite).
-- Durable scan queue, scanner-node enrollment or production deployment hardening.
+- Browser OIDC authorization-code + PKCE login/callback.
+- Organization invitations and membership role administration.
+- Hosted frontend integration and public deployment.
+- PostgreSQL-backed finding lifecycle repository (findings remain in the local
+  SQLite adapter today).
+- Domain ownership verification, hosted assessment orchestration, durable
+  scan queue and scanner-node enrollment.
+- Production observability, backup/restore, incident response and independent
+  security review.
