@@ -95,7 +95,7 @@ def canonicalize_domain(raw: str) -> str:
         domain = candidate.encode("idna").decode("ascii").lower()
     except UnicodeError as exc:
         raise ValueError("The domain name is not valid IDNA.") from exc
-    if len(domain) > 253 or "." not in domain:
+    if len(domain) > 234 or "." not in domain:
         raise ValueError("A fully qualified public domain name is required.")
     if domain in _RESERVED_DOMAINS or domain.endswith(_RESERVED_SUFFIXES):
         raise ValueError("Private, reserved and test-only domain names cannot be registered.")
@@ -471,7 +471,7 @@ def create_app(
                 project_id=payload.project_id,
                 kind="domain",
                 canonical_value=domain,
-                display_name=(payload.display_name or domain).strip()[:255],
+                display_name=((payload.display_name or domain).strip() or domain)[:255],
             )
             session.add(asset)
             session.flush()
@@ -596,7 +596,7 @@ def create_app(
                 return {"status": "expired", "asset_id": str(asset.id)}
             resolver = dns.resolver.Resolver()
             try:
-                answer = resolver.resolve(challenge.record_name, "TXT", lifetime=5)
+                answer = resolver.resolve(challenge.record_name, "TXT", lifetime=5, search=False)
             except (dns.exception.DNSException, OSError) as exc:
                 raise HTTPException(
                     409,
