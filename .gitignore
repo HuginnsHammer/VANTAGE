@@ -5,6 +5,8 @@ __pycache__/
 .coverage
 htmlcov/
 .env
+.env.dev
+.env.*.local
 *.sqlite3
 dist/
 build/
