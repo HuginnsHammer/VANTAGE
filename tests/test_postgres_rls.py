@@ -45,29 +45,31 @@ def tenant_fixture():
         id=uuid4(), organization_id=org_b.id,
         slug="production", name="Production",
     )
+    org_a_id, org_b_id = org_a.id, org_b.id
+    user_id, project_b_id = identity.id, project_b.id
     with Session(admin_engine) as session:
         session.add_all([org_a, org_b, identity])
         session.commit()
     with Session(admin_engine) as session:
         session.add_all([
             Membership(
-                organization_id=org_a.id, user_id=identity.id,
+                organization_id=org_a_id, user_id=user_id,
                 role="owner", status="active",
             ),
             Membership(
-                organization_id=org_b.id, user_id=identity.id,
+                organization_id=org_b_id, user_id=user_id,
                 role="owner", status="active",
             ),
             project_b,
         ])
         session.commit()
-    yield org_a.id, org_b.id, identity.id, project_b.id
+    yield org_a_id, org_b_id, user_id, project_b_id
     with admin_engine.begin() as connection:
         connection.execute(
-            delete(Organization).where(Organization.id.in_([org_a.id, org_b.id]))
+            delete(Organization).where(Organization.id.in_([org_a_id, org_b_id]))
         )
         connection.execute(
-            delete(UserIdentity).where(UserIdentity.id == identity.id)
+            delete(UserIdentity).where(UserIdentity.id == user_id)
         )
     admin_engine.dispose()
 
