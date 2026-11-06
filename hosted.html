@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090d0c">
+  <meta name="description" content="VANTAGE security exposure management workspace">
+  <title>VANTAGE — Security workspace</title>
+  <link rel="icon" href="/assets/vantage-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/hosted/hosted.css">
+  <script src="/assets/hosted/hosted.js" defer></script>
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <header class="topbar">
+    <a class="brand" href="/app" aria-label="VANTAGE home">
+      <img src="/assets/vantage-mark.svg" alt="">
+      <span>VANTAGE</span>
+    </a>
+    <div class="topbar-right">
+      <span class="connection"><i></i> HOSTED CONTROL PLANE</span>
+      <button id="signout" class="button button-quiet hidden" type="button">Sign out</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section id="auth-view" class="auth-layout">
+      <div class="hero-copy">
+        <p class="eyebrow">SECURITY EXPOSURE MANAGEMENT</p>
+        <h1>Know your exposure.<br><span>Own the response.</span></h1>
+        <p class="lede">A single workspace for assets, verified ownership and evidence-led security work. Built for individuals and teams.</p>
+        <div class="trust-points">
+          <div><b>01</b><span>Register assets you control</span></div>
+          <div><b>02</b><span>Verify ownership before assessment</span></div>
+          <div><b>03</b><span>Keep teams and evidence in one place</span></div>
+        </div>
+      </div>
+      <section class="panel auth-panel">
+        <p class="eyebrow">YOUR WORKSPACE</p>
+        <h2>Sign in to VANTAGE</h2>
+        <p class="muted">Use your organization's identity provider. Personal workspaces are created automatically on first sign-in.</p>
+        <div id="auth-config-warning" class="notice notice-warning hidden">
+          <strong>Identity provider not configured</strong>
+          <p>The API is running, but sign-in needs an OIDC issuer, public client ID, API audience and redirect URL.</p>
+          <a href="/api/docs" target="_blank" rel="noreferrer">View API documentation</a>
+        </div>
+        <button id="signin" class="button button-primary button-wide" type="button">Continue with secure sign-in <span>↗</span></button>
+        <p id="auth-message" class="status-message" role="status"></p>
+        <div class="panel-foot"><span class="dot"></span> Tokens are held in this browser session only.</div>
+      </section>
+    </section>
+
+    <section id="workspace-view" class="workspace hidden">
+      <div class="workspace-head">
+        <div>
+          <p class="eyebrow">YOUR SECURITY SPACE</p>
+          <h1>Exposure overview</h1>
+          <p id="welcome" class="muted"></p>
+        </div>
+        <div class="workspace-picker">
+          <label for="workspace-select">WORKSPACE</label>
+          <select id="workspace-select"></select>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <article class="metric-card"><span>REGISTERED ASSETS</span><strong id="metric-assets">0</strong><small>Domains in this workspace</small></article>
+        <article class="metric-card"><span>OWNERSHIP VERIFIED</span><strong id="metric-verified">0</strong><small>DNS TXT verification complete</small></article>
+        <article class="metric-card"><span>PROJECTS</span><strong id="metric-projects">0</strong><small>Organized security work</small></article>
+        <article class="metric-card"><span>WORKSPACE ROLE</span><strong id="metric-role">—</strong><small id="metric-kind">Personal workspace</small></article>
+      </div>
+
+      <div class="content-grid">
+        <section class="panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">ATTACK SURFACE INVENTORY</p><h2>Domains</h2></div>
+            <span class="count-pill" id="asset-count">0 assets</span>
+          </div>
+          <form id="asset-form" class="inline-form">
+            <label class="field"><span>PUBLIC DOMAIN</span><input id="domain-input" name="domain" placeholder="example.co.ke" autocomplete="off" required></label>
+            <label class="field"><span>DISPLAY NAME <em>OPTIONAL</em></span><input id="domain-label" name="display_name" placeholder="Main website" autocomplete="off"></label>
+            <button class="button button-primary" type="submit">Add domain</button>
+          </form>
+          <p class="helper">Add only domains you own or are explicitly authorized to manage.</p>
+          <div id="asset-list" class="asset-list"><div class="empty-state">No domains registered yet.</div></div>
+        </section>
+
+        <aside class="side-stack">
+          <section class="panel">
+            <div class="section-heading"><div><p class="eyebrow">TEAM WORKSPACE</p><h2>Organizations</h2></div></div>
+            <p class="muted small">Create a separate workspace for a company, client or team.</p>
+            <form id="organization-form" class="stack-form">
+              <label class="field"><span>ORGANIZATION NAME</span><input id="org-name" placeholder="Acme Security Team" required minlength="2"></label>
+              <label class="field"><span>WORKSPACE SLUG</span><input id="org-slug" placeholder="acme-security" required minlength="3" pattern="[a-z0-9]+([a-z0-9-]*[a-z0-9])?"></label>
+              <button class="button button-secondary button-wide" type="submit">Create organization</button>
+            </form>
+          </section>
+          <section class="panel">
+            <div class="section-heading"><div><p class="eyebrow">PROJECT STRUCTURE</p><h2>Projects</h2></div></div>
+            <form id="project-form" class="stack-form">
+              <label class="field"><span>PROJECT NAME</span><input id="project-name" placeholder="Production environment" required minlength="2"></label>
+              <label class="field"><span>PROJECT SLUG</span><input id="project-slug" placeholder="production" required minlength="2"></label>
+              <button class="button button-secondary button-wide" type="submit">Create project</button>
+            </form>
+            <div id="project-list" class="project-list"><div class="empty-state compact">No projects yet.</div></div>
+          </section>
+        </aside>
+      </div>
+
+      <section class="panel verification-panel">
+        <div class="verification-icon">⌁</div>
+        <div>
+          <p class="eyebrow">OWNERSHIP BEFORE ASSESSMENT</p>
+          <h2>Verify the domains you control</h2>
+          <p class="muted">VANTAGE publishes a one-time DNS TXT challenge. Verification proves control of the domain namespace; it does not automatically authorize active security testing.</p>
+        </div>
+      </section>
+      <p id="workspace-message" class="status-message" role="status"></p>
+    </section>
+  </main>
+
+  <div id="challenge-dialog" class="dialog-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="challenge-title">
+    <section class="panel dialog">
+      <button id="close-dialog" class="dialog-close" type="button" aria-label="Close">×</button>
+      <p class="eyebrow">DNS OWNERSHIP CHECK</p>
+      <h2 id="challenge-title">Publish this TXT record</h2>
+      <p class="muted">Add the record below in your domain's DNS provider. DNS changes can take time to propagate.</p>
+      <div class="record-block"><span>TYPE</span><strong>TXT</strong></div>
+      <div class="record-block"><span>HOST / NAME</span><code id="record-name"></code><button data-copy="record-name" class="copy-button" type="button">Copy</button></div>
+      <div class="record-block"><span>VALUE</span><code id="record-value"></code><button data-copy="record-value" class="copy-button" type="button">Copy</button></div>
+      <p id="record-expiry" class="helper"></p>
+      <button id="verify-domain" class="button button-primary button-wide" type="button">I've published the record — verify</button>
+      <p id="challenge-message" class="status-message" role="status"></p>
+    </section>
+  </div>
+  <footer class="footer"><span>VANTAGE</span><span>Evidence first. Authorization always.</span></footer>
+</body>
+</html>
