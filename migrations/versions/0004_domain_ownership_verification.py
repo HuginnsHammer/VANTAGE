@@ -1,13 +1,13 @@
 """Add domain ownership verification challenges and verified asset timestamps.
 
-Revision ID: 0004_domain_ownership_verification
+Revision ID: 0004_domain_verify
 Revises: 0003_identity_visibility
 """
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = "0004_domain_ownership_verification"
+revision = "0004_domain_verify"
 down_revision = "0003_identity_visibility"
 branch_labels = None
 depends_on = None
@@ -23,7 +23,7 @@ def upgrade() -> None:
         "assets",
         ["organization_id", "kind", "canonical_value"],
         unique=True,
-        postgresql_where=sa.text("environment_id IS NULL"),
+        postgresql_where=sa.text("environment_id IS NULL AND kind = 'domain'"),
     )
     op.create_table(
         "domain_verification_challenges",
@@ -46,7 +46,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["organization_id", "requested_by"],
             ["memberships.organization_id", "memberships.user_id"],
-            ondelete="RESTRICT",
+            ondelete="CASCADE",
         ),
         sa.CheckConstraint("method IN ('dns_txt')", name="ck_domain_challenge_method"),
         sa.CheckConstraint(

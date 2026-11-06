@@ -18,7 +18,6 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import dns.exception
 import dns.resolver
-
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -39,6 +38,7 @@ from vantage.persistence.postgres import (
     create_postgres_engine,
     create_session_factory,
     set_tenant_context,
+    utc_now,
     validate_runtime_role,
 )
 
