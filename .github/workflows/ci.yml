@@ -47,6 +47,7 @@ jobs:
         run: |
           python -m json.tool deploy/keycloak/vantage-realm.json > /dev/null
           docker compose --env-file .env.dev.example -f docker-compose.dev.yml config --quiet
+          docker build -t vantage:ci .
       - name: Validate PostgreSQL migration SQL
         run: alembic upgrade head --sql
       - name: Apply migrations and create restricted runtime role
