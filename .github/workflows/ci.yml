@@ -46,7 +46,7 @@ jobs:
       - name: Apply migrations and create restricted runtime role
         run: |
           alembic upgrade head
-          psql "$VANTAGE_DATABASE_URL" -v ON_ERROR_STOP=1 \
+          PGPASSWORD=postgres psql -h localhost -U postgres -d vantage_test -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE vantage_app LOGIN PASSWORD 'vantage_app' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS" \
             -c "GRANT CONNECT ON DATABASE vantage_test TO vantage_app" \
             -c "GRANT USAGE ON SCHEMA public TO vantage_app" \
