@@ -5,22 +5,33 @@ issuer. The local development API remains a separate application.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
+import ipaddress
 import os
+import re
+import secrets
 from collections.abc import Callable
+from datetime import timedelta
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
+
+import dns.exception
+import dns.resolver
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from vantage.auth.oidc import OIDCTokenVerifier
 from vantage.persistence.postgres import (
+    AssetRecord,
     AuditEvent,
+    DomainVerificationChallenge,
     Membership,
     Organization,
     Project,
@@ -55,6 +66,51 @@ class UserIdentityView(BaseModel):
     email: str | None
     display_name: str | None
     personal_organization_id: UUID
+
+
+class DomainAssetCreate(BaseModel):
+    domain: str = Field(min_length=1, max_length=253)
+    display_name: str | None = Field(default=None, max_length=255)
+    project_id: UUID | None = None
+
+
+_DOMAIN_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+_RESERVED_SUFFIXES = (
+    ".localhost", ".local", ".internal", ".test", ".example", ".invalid",
+    ".onion", ".home.arpa",
+)
+_RESERVED_DOMAINS = {"example.com", "example.net", "example.org"}
+
+
+def canonicalize_domain(raw: str) -> str:
+    candidate = raw.strip().rstrip(".")
+    if (
+        not candidate
+        or "://" in candidate
+        or any(character in candidate for character in "/:@?#")
+        or any(character.isspace() for character in candidate)
+    ):
+        raise ValueError("Enter a domain name only, without a URL, path, port or wildcard.")
+    try:
+        domain = candidate.encode("idna").decode("ascii").lower()
+    except UnicodeError as exc:
+        raise ValueError("The domain name is not valid IDNA.") from exc
+    if len(domain) > 253 or "." not in domain:
+        raise ValueError("A fully qualified public domain name is required.")
+    if domain in _RESERVED_DOMAINS or domain.endswith(_RESERVED_SUFFIXES):
+        raise ValueError("Private, reserved and test-only domain names cannot be registered.")
+    try:
+        ipaddress.ip_address(domain)
+    except ValueError:
+        pass
+    else:
+        raise ValueError("Register a domain name, not an IP address.")
+    labels = domain.split(".")
+    if any(not _DOMAIN_LABEL.fullmatch(label) for label in labels):
+        raise ValueError("The domain name contains an invalid label.")
+    if len(labels[-1]) < 2:
+        raise ValueError("The domain must have a valid public suffix.")
+    return domain
 
 
 def personal_workspace_id(issuer: str, subject: str) -> UUID:
