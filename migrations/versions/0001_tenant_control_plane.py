@@ -3,8 +3,8 @@
 Revision ID: 0001_tenant_control_plane
 Revises:
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision = "0001_tenant_control_plane"
