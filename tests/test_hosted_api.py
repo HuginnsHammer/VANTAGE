@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from vantage.api.hosted import create_app
+from vantage.api.hosted import create_app, personal_workspace_id
 from vantage.persistence.postgres import create_postgres_engine
 
 ADMIN_URL = os.getenv("VANTAGE_DATABASE_URL")
@@ -37,7 +37,10 @@ def test_hosted_identity_workspaces_and_tenant_isolation():
     alice_headers = {"Authorization": "Bearer alice-token"}
     bob_headers = {"Authorization": "Bearer bob-token"}
     admin_engine = create_postgres_engine(ADMIN_URL)
-    cleanup_org_ids = []
+    cleanup_org_ids = [
+        str(personal_workspace_id(issuer, alice_sub)),
+        str(personal_workspace_id(issuer, bob_sub)),
+    ]
     cleanup_subjects = [alice_sub, bob_sub]
     try:
         assert client.get("/api/v2/me").status_code == 401
@@ -46,7 +49,7 @@ def test_hosted_identity_workspaces_and_tenant_isolation():
         assert alice.status_code == 200
         alice_data = alice.json()
         personal_id = alice_data["personal_organization_id"]
-        cleanup_org_ids.append(personal_id)
+        assert personal_id in cleanup_org_ids
         assert any(item["kind"] == "personal" for item in alice_data["workspaces"])
 
         slug = f"it-org-{uuid4().hex[:10]}"
@@ -97,7 +100,7 @@ def test_hosted_identity_workspaces_and_tenant_isolation():
         with admin_engine.begin() as connection:
             if cleanup_org_ids:
                 connection.execute(
-                    text("DELETE FROM organizations WHERE id = ANY(:ids)"),
+                    text("DELETE FROM organizations WHERE id::text = ANY(:ids)"),
                     {"ids": cleanup_org_ids},
                 )
             connection.execute(
