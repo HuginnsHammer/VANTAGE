@@ -17,6 +17,8 @@ def database_url() -> str:
     url = os.environ.get("VANTAGE_DATABASE_URL") or config.get_main_option("sqlalchemy.url")
     if not url.startswith(("postgresql://", "postgresql+psycopg://")):
         raise RuntimeError("VANTAGE_DATABASE_URL must point to PostgreSQL")
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
 
 
