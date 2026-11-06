@@ -38,6 +38,7 @@ from vantage.persistence.postgres import (
     create_postgres_engine,
     create_session_factory,
     set_tenant_context,
+    utc_now,
     validate_runtime_role,
 )
 
