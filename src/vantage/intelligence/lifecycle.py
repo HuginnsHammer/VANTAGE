@@ -5,9 +5,10 @@ small so a PostgreSQL repository can replace it without changing lifecycle polic
 """
 from __future__ import annotations
 
-import json
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -56,7 +57,7 @@ def calculate_risk_score(
     return max(0, min(100, round(raw)))
 
 
-class FindingStatus(str):
+class FindingStatus(StrEnum):
     OPEN = "open"
     REOPENED = "reopened"
     RESOLVED = "resolved"
@@ -111,7 +112,7 @@ class SQLiteFindingLedger:
         return connection
 
     def _initialize(self) -> None:
-        with self._connect() as db:
+        with closing(self._connect()) as db, db:
             db.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS findings (
