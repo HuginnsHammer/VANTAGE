@@ -13,7 +13,7 @@ An individual may belong to multiple organizations. Personal workspaces and orga
 
 \`user_identities\` stores the stable OpenID Connect issuer/subject pair. Email is profile metadata, never an identity key. Membership roles are constrained to owner, admin, security analyst, operator and viewer. Membership status is explicit.
 
-The schema is not an authentication implementation. A future API must validate OIDC tokens (issuer, audience, signature, expiry and nonce/state as appropriate), resolve the stable issuer/subject identity, and authorize active membership before any tenant operation.
+The hosted API now validates RS256 OIDC access tokens against a configured issuer, audience and JWKS endpoint. It keys identity by the exact issuer/subject pair; email is stored only when the provider asserts `email_verified=true`. Browser authorization-code login and provider-specific client configuration remain deployment work. The API never accepts a client-supplied user ID as identity.
 
 A client-supplied organization ID is an untrusted selector, not proof of membership. Inside a transaction, the API may first set that candidate organization as the RLS row filter, then query membership using both that organization ID and the authenticated user ID. It must reject absent, invited or suspended memberships before performing any other tenant operation. The organization selector cannot authorize access by itself.
 
@@ -26,13 +26,13 @@ The initial migration enables and forces PostgreSQL row-level security for organ
 \`\`\`python
 with session.begin():
     # First validate the authenticated user's membership for this org.
-    set_tenant_context(session, organization_id)
+    set_tenant_context(session, organization_id, authenticated_user_id)
     # All subsequent tenant queries in this transaction are RLS-filtered.
 \`\`\`
 
-The setting is transaction-local and clears on commit/rollback. If it is absent, the policy returns no tenant rows. The production runtime database role must not be a superuser, must not have BYPASSRLS, and should not own the protected tables. Use a separate migration role for schema changes.
+Both settings are transaction-local and clear on commit/rollback. Membership RLS permits a user-context query to enumerate only that authenticated user's own memberships; organization records and all other tenant data still require a matching organization context. If context is absent, policies fail closed. The production runtime database role must not be a superuser, must not have BYPASSRLS, and should not own the protected tables. Use a separate migration role for schema changes.
 
-RLS is defense in depth. Service-layer authorization is still required, especially for membership changes, role checks and scope approval. CI now applies the migration to PostgreSQL 16 and tests tenant reads, cross-tenant writes, composite foreign keys and transaction-local context using a restricted runtime role. These tests must expand alongside future API and service-layer authorization code.
+RLS is defense in depth. Service-layer authorization is still required, especially for membership changes, role checks and scope approval. CI applies migrations to PostgreSQL 16 and tests tenant reads, cross-tenant writes, composite foreign keys and transaction-local context using a restricted runtime role. The hosted API refuses superuser, BYPASSRLS and tenant-table-owner database identities. These tests must expand alongside future API and service-layer authorization code.
 
 ## Assessment authorization
 
