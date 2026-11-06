@@ -15,7 +15,7 @@ An individual may belong to multiple organizations. Personal workspaces and orga
 
 The schema is not an authentication implementation. A future API must validate OIDC tokens (issuer, audience, signature, expiry and nonce/state as appropriate), resolve the stable issuer/subject identity, and authorize active membership before any tenant operation.
 
-A client-supplied organization ID is an untrusted selector, not proof of membership. The API must query the requested organization membership for the authenticated user and reject absent, invited or suspended memberships.
+A client-supplied organization ID is an untrusted selector, not proof of membership. Inside a transaction, the API may first set that candidate organization as the RLS row filter, then query membership using both that organization ID and the authenticated user ID. It must reject absent, invited or suspended memberships before performing any other tenant operation. The organization selector cannot authorize access by itself.
 
 ## Tenant isolation
 
