@@ -10,14 +10,15 @@ import json
 import os
 import shutil
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from vantage.domain.models import ApprovedScope, Asset, AssetKind, ScanRequest
@@ -147,6 +148,7 @@ def create_app(
     app.state.db_path = db_path
     app.state.ledger = ledger
     app.state.cloudsentry_executable = executable
+    os.chmod(db_path, 0o600)
 
     @app.middleware("http")
     async def loopback_only(request: Request, call_next):
@@ -170,6 +172,13 @@ def create_app(
         )
 
     def scope_from_row(row: sqlite3.Row) -> ApprovedScope:
+        keys = set(row.keys())
+        organization_id = (
+            row["asset_organization_id"]
+            if "asset_organization_id" in keys
+            else row["organization_id"]
+        )
+        asset_id = row["asset_id"] if "asset_id" in keys else row["id"]
         with connect() as db:
             scope = db.execute("SELECT * FROM scopes WHERE id=?", (row["scope_id"],)).fetchone()
         if scope is None or scope["revoked_at"]:
@@ -178,8 +187,8 @@ def create_app(
             raise HTTPException(403, "The authorization scope has expired.")
         return ApprovedScope(
             id=UUID(scope["id"]),
-            organization_id=UUID(row["asset_organization_id"]),
-            asset_id=UUID(row["asset_id"]),
+            organization_id=UUID(organization_id),
+            asset_id=UUID(asset_id),
             approved_by=LOCAL_ACTOR_ID,
             authorization_reference=scope["authorization_reference"],
             approved_at=datetime.fromisoformat(scope["approved_at"]),
@@ -355,7 +364,8 @@ def create_app(
                 raise HTTPException(403, "CloudSentry is not permitted by this scope.")
             scan_id = uuid4()
             db.execute(
-                "INSERT INTO scans (id, asset_id, scanner_id, state, created_at) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO scans "
+                "(id, asset_id, scanner_id, state, created_at) VALUES (?, ?, ?, ?, ?)",
                 (str(scan_id), str(asset_id), "cloudsentry", "queued", utc_iso()),
             )
         background_tasks.add_task(run_scan, str(scan_id))
@@ -375,7 +385,9 @@ def create_app(
             "scanner_id": row["scanner_id"], "state": row["state"],
             "created_at": row["created_at"], "started_at": row["started_at"],
             "completed_at": row["completed_at"], "error": row["error"],
-            "summary": json.loads(row["ledger_summary_json"]) if row["ledger_summary_json"] else None,
+            "summary": (
+                json.loads(row["ledger_summary_json"]) if row["ledger_summary_json"] else None
+            ),
         } for row in rows]}
 
     @app.get("/api/v1/findings")
@@ -439,7 +451,9 @@ def create_app(
             "state": row["state"], "created_at": row["created_at"],
             "started_at": row["started_at"], "completed_at": row["completed_at"],
             "error": row["error"],
-            "summary": json.loads(row["ledger_summary_json"]) if row["ledger_summary_json"] else None,
+            "summary": (
+                json.loads(row["ledger_summary_json"]) if row["ledger_summary_json"] else None
+            ),
         }
 
     @app.get("/app", include_in_schema=False)
@@ -451,6 +465,7 @@ def create_app(
     def public_site():
         return FileResponse(ROOT / "index.html")
 
+    app.mount("/assets", StaticFiles(directory=ROOT / "assets"), name="assets")
     return app
 
 
