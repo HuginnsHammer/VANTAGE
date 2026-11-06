@@ -16,7 +16,11 @@ header, except the health endpoint.
 | GET | /api/v2/organizations/{id} | Read an accessible workspace |
 | GET | /api/v2/organizations/{id}/members | List members (owner/admin only) |
 | POST | /api/v2/organizations/{id}/projects | Create a project (owner/admin/analyst/operator) |
-| GET | /api/v2/organizations/{id}/projects | List projects |\n| GET | /api/v2/organizations/{id}/assets | List registered assets |\n| POST | /api/v2/organizations/{id}/assets | Register a public domain |\n| POST | /api/v2/organizations/{id}/assets/{asset_id}/domain-verification | Create a DNS TXT challenge |\n| POST | /api/v2/organizations/{id}/assets/{asset_id}/domain-verification/verify | Verify domain ownership |
+| GET | /api/v2/organizations/{id}/projects | List projects |
+| GET | /api/v2/organizations/{id}/assets | List registered assets |
+| POST | /api/v2/organizations/{id}/assets | Register a public domain |
+| POST | /api/v2/organizations/{id}/assets/{asset_id}/domain-verification | Create a DNS TXT challenge |
+| POST | /api/v2/organizations/{id}/assets/{asset_id}/domain-verification/verify | Verify domain ownership |
 
 Inaccessible organizations return 404 rather than disclosing whether the
 organization exists. User identity is keyed by the exact OIDC issuer and
@@ -76,18 +80,29 @@ and bind the service only to the private application network.
 
 ## Identity provider setup still required
 
-VANTAGE does not issue credentials or implement a browser authorization-code
-callback yet. Configure an OIDC provider to issue access tokens for the VANTAGE
-API audience, then integrate its authorization-code + PKCE browser flow with
-the future hosted frontend. Do not put an OIDC client secret in browser code.
-The API accepts bearer tokens only; it does not accept unsigned development
-tokens or trust a user ID supplied by a client. The hosted workspace UI uses
-Authorization Code + PKCE as a public browser client, stores the short-lived
-access token in sessionStorage only, and does not store refresh tokens or a
-client secret. Configure the exact callback URL and allowed web origin at the
-identity provider. The provider's token endpoint must allow browser CORS from
-the VANTAGE origin. The API accepts only RS256 JWT access tokens with the
-configured API audience; opaque access tokens are not supported.
+VANTAGE does not issue credentials. The hosted workspace UI already implements
+Authorization Code + PKCE as a public browser client. Configure an OIDC
+provider application with these settings:
+
+1. Application type: Single-page application / public client.
+2. Grant: Authorization Code with PKCE (S256); no client secret.
+3. Callback URL: exactly the value of VANTAGE_OIDC_REDIRECT_URI, normally
+   https://your-app-domain/app.
+4. Allowed web origin: the VANTAGE application origin.
+5. API audience: exactly VANTAGE_OIDC_AUDIENCE.
+6. Access token format: RS256-signed JWT with issuer, audience, expiry, issued-at
+   and subject claims. Opaque access tokens are not supported.
+
+Set VANTAGE_OIDC_ISSUER, VANTAGE_OIDC_AUDIENCE, VANTAGE_OIDC_JWKS_URL,
+VANTAGE_OIDC_CLIENT_ID and VANTAGE_OIDC_REDIRECT_URI on the API. Set
+VANTAGE_CORS_ORIGINS to explicit trusted browser origins if the UI and API use
+different origins. The provider's token endpoint must permit browser CORS from
+the VANTAGE origin.
+
+The UI validates OAuth state and uses a PKCE verifier for code exchange. It
+stores the short-lived access token in sessionStorage only; it does not store
+refresh tokens or a client secret. The API independently validates the access
+token signature and claims. Do not put an OIDC client secret in browser code.
 
 ## Current boundaries
 
@@ -95,7 +110,6 @@ configured API audience; opaque access tokens are not supported.
 - Organization creation grants the creator the owner role.
 - Membership enumeration is limited by PostgreSQL RLS to the authenticated
   actor's own memberships; tenant resources require active membership.
-- Project operations are role-gated and audit logged.
-- Invitations, member role changes, browser login, hosted UI integration,
-  asset registration/ownership verification, hosted scans, durable queues,
-  and scanner-node enrollment are not implemented in this milestone.
+- Project and domain asset operations are role-gated and audit logged.
+- DNS TXT verification proves domain control but does not authorize active tests.
+- Invitations, member role changes, hosted scans, durable queues, and scanner-node enrollment remain unimplemented.
