@@ -1,3 +1,4 @@
+import os
 from uuid import uuid4
 
 import pytest
@@ -11,6 +12,7 @@ from vantage.persistence.postgres import (
     Organization,
     create_postgres_engine,
     set_tenant_context,
+    validate_runtime_role,
 )
 
 
@@ -62,3 +64,15 @@ def test_rls_context_requires_an_active_transaction() -> None:
 
     with pytest.raises(RuntimeError, match="active transaction"):
         set_tenant_context(InactiveSession(), uuid4())
+
+
+def test_runtime_role_guard_rejects_postgres_superuser() -> None:
+    admin_url = os.getenv("VANTAGE_DATABASE_URL")
+    if not admin_url:
+        pytest.skip("PostgreSQL integration URL is not configured")
+    engine = create_postgres_engine(admin_url)
+    try:
+        with pytest.raises(RuntimeError, match="superuser or BYPASSRLS"):
+            validate_runtime_role(engine)
+    finally:
+        engine.dispose()

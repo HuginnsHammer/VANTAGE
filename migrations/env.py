@@ -14,9 +14,13 @@ target_metadata = Base.metadata
 
 
 def database_url() -> str:
-    url = os.environ.get("VANTAGE_DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+    url = (
+        os.environ.get("VANTAGE_MIGRATION_DATABASE_URL")
+        or os.environ.get("VANTAGE_DATABASE_URL")
+        or config.get_main_option("sqlalchemy.url")
+    )
     if not url.startswith(("postgresql://", "postgresql+psycopg://")):
-        raise RuntimeError("VANTAGE_DATABASE_URL must point to PostgreSQL")
+        raise RuntimeError("VANTAGE_MIGRATION_DATABASE_URL must point to PostgreSQL")
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
@@ -24,8 +28,11 @@ def database_url() -> str:
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=database_url(), target_metadata=target_metadata,
-        literal_binds=True, dialect_opts={"paramstyle": "named"}, compare_type=True,
+        url=database_url(),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -35,10 +42,16 @@ def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section) or {}
     configuration["sqlalchemy.url"] = database_url()
     connectable = engine_from_config(
-        configuration, prefix="sqlalchemy.", poolclass=pool.NullPool,
+        configuration,
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+        )
         with context.begin_transaction():
             context.run_migrations()
 
