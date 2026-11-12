@@ -62,6 +62,9 @@ for finding in report.findings:
 - Symlinked workspace roots and discovered symlink entries are rejected before execution.
 - CloudSentry's exit status and report status are preserved; partial scans are not clean scans.
 - Imported findings remain unverified until a separate verification process confirms them.
+- Imported evidence, finding descriptions, remediation text, warnings, errors and process diagnostics pass through a best-effort secret sanitizer. It covers common private-key blocks, AWS access-key IDs, GitHub tokens, JWTs, bearer/basic authorization values, URL passwords and literal values assigned to common secret fields.
+
+The sanitizer is defense in depth, not a complete data-loss-prevention guarantee. It cannot identify every proprietary token format, encoded secret or context-specific credential. Protect the local VANTAGE data directory and review reports before sharing them outside the authorized assessment team.
 
 ## Current limitations
 
