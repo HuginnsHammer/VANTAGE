@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 from vantage.adapters.cloudsentry import import_cloudsentry_report
+from vantage.adapters.redaction import redact_sensitive_text
 from vantage.domain.models import Asset, AssetKind, ScanReport, ScanRequest, ScanState
 
 
@@ -65,14 +66,16 @@ class CloudSentryProcessScanner:
             raise CloudSentryExecutionError(f"Could not start CloudSentry: {exc}") from exc
 
         if completed.returncode not in (0, 1, 2):
-            detail = completed.stderr.strip()[:1000] or "No diagnostic was provided"
+            detail = redact_sensitive_text(completed.stderr.strip())[:1000]
+            detail = detail or "No diagnostic was provided"
             raise CloudSentryExecutionError(
                 f"CloudSentry exited unexpectedly ({completed.returncode}): {detail}"
             )
         try:
             payload = json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
-            detail = completed.stderr.strip()[:1000] or "CloudSentry returned invalid JSON"
+            detail = redact_sensitive_text(completed.stderr.strip())[:1000]
+            detail = detail or "CloudSentry returned invalid JSON"
             raise CloudSentryExecutionError(detail) from exc
         if not isinstance(payload, dict):
             raise CloudSentryExecutionError("CloudSentry returned a non-object JSON report")

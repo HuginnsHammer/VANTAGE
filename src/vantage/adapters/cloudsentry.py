@@ -1,6 +1,7 @@
 """Normalize CloudSentry JSON output without upgrading uncertain results to verified."""
 from uuid import UUID
 
+from vantage.adapters.redaction import redact_sensitive_text
 from vantage.domain.models import (
     Confidence,
     Evidence,
@@ -43,9 +44,13 @@ def import_cloudsentry_report(
         )
         evidence = Evidence(
             kind="static_configuration",
-            summary=str(item.get("evidence", "Evidence not supplied"))[:2000],
-            location=str(item.get("file_path", ""))[:2048] or None,
+            summary=redact_sensitive_text(
+                item.get("evidence", "Evidence not supplied")
+            )[:2000],
+            location=redact_sensitive_text(item.get("file_path", ""))[:2048] or None,
             source_scanner="cloudsentry",
+            # The imported text has passed through the baseline sanitizer. This
+            # flag does not imply that every possible secret format is detected.
             redacted=True,
         )
         findings.append(
@@ -54,24 +59,30 @@ def import_cloudsentry_report(
                 asset_id=asset_id,
                 scanner_id="cloudsentry",
                 rule_id=str(item.get("rule_id", "unknown"))[:160],
-                title=str(item.get("title", "Untitled finding"))[:300],
-                description=str(item.get("description", ""))[:4000],
+                title=redact_sensitive_text(
+                    item.get("title", "Untitled finding")
+                )[:300],
+                description=redact_sensitive_text(item.get("description", ""))[:4000],
                 severity=_SEVERITIES.get(
                     str(item.get("severity", "")).lower(), FindingSeverity.UNKNOWN
                 ),
                 confidence=confidence_value,
                 evidence=(evidence,),
-                remediation=str(item.get("remediation", ""))[:4000] or None,
+                remediation=redact_sensitive_text(
+                    item.get("remediation", "")
+                )[:4000] or None,
                 fingerprint=fingerprint,
                 verified=False,
             )
         )
     errors = tuple(
-        str(item.get("message", "Unknown scan error"))[:1000]
+        redact_sensitive_text(item.get("message", "Unknown scan error"))[:1000]
         for item in payload.get("errors", [])
         if isinstance(item, dict)
     )
-    warnings = tuple(str(item)[:1000] for item in payload.get("warnings", []))
+    warnings = tuple(
+        redact_sensitive_text(item)[:1000] for item in payload.get("warnings", [])
+    )
     if errors and state == ScanState.COMPLETED:
         state = ScanState.PARTIAL
     return ScanReport(
