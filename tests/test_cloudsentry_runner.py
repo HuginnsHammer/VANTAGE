@@ -92,3 +92,20 @@ def test_runner_enforces_timeout(monkeypatch, tmp_path):
     monkeypatch.setattr(subprocess, "run", timeout)
     with pytest.raises(CloudSentryExecutionError, match="execution limit"):
         CloudSentryProcessScanner(timeout_seconds=5).scan(asset, request)
+
+
+def test_runner_redacts_secrets_from_unexpected_exit_diagnostics(monkeypatch, tmp_path):
+    asset, request, _ = make_case(tmp_path)
+    secret = "do-not-store-this-scanner-password"
+
+    def failed_run(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command, 3, "", f'password = "{secret}"'
+        )
+
+    monkeypatch.setattr(subprocess, "run", failed_run)
+    with pytest.raises(CloudSentryExecutionError) as captured:
+        CloudSentryProcessScanner().scan(asset, request)
+
+    assert secret not in str(captured.value)
+    assert "[REDACTED]" in str(captured.value)
