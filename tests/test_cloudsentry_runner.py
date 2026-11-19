@@ -1,5 +1,5 @@
 import json
-import subprocess
+import sys
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,7 +13,7 @@ from vantage.domain.models import Asset, AssetKind, ScanRequest, ScanState
 
 
 def make_case(tmp_path: Path):
-    workspace = tmp_path / "workspace"
+    workspace = tmp_path / "workspace with spaces"
     workspace.mkdir()
     (workspace / "main.tf").write_text('resource "x" "y" {}', encoding="utf-8")
     org, user = uuid4(), uuid4()
@@ -32,7 +32,14 @@ def make_case(tmp_path: Path):
     return asset, request, workspace
 
 
-def test_runner_invokes_cli_without_shell_and_normalizes_report(monkeypatch, tmp_path):
+def write_executable(tmp_path: Path, source: str) -> str:
+    executable = tmp_path / "fake-cloudsentry"
+    executable.write_text(f"#!{sys.executable}\n{source}\n", encoding="utf-8")
+    executable.chmod(0o755)
+    return str(executable)
+
+
+def test_runner_invokes_cli_without_shell_and_normalizes_report(tmp_path):
     asset, request, workspace = make_case(tmp_path)
     payload = {
         "status": "ok",
@@ -51,61 +58,68 @@ def test_runner_invokes_cli_without_shell_and_normalizes_report(monkeypatch, tmp
         "errors": [],
         "warnings": [],
     }
-    seen = {}
-
-    def fake_run(command, **kwargs):
-        seen["command"] = command
-        seen["kwargs"] = kwargs
-        return subprocess.CompletedProcess(command, 1, json.dumps(payload), "")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    report = CloudSentryProcessScanner().scan(asset, request)
+    script = (
+        "import sys\n"
+        f"expected_workspace = {str(workspace)!r}\n"
+        "if sys.argv[1:] != ['scan', expected_workspace, '--format', 'json']:\n"
+        "    raise SystemExit(9)\n"
+        f"sys.stdout.write({json.dumps(json.dumps(payload))})\n"
+        "raise SystemExit(1)"
+    )
+    executable = write_executable(tmp_path, script)
+    report = CloudSentryProcessScanner(executable=executable).scan(asset, request)
 
     assert report.state == ScanState.COMPLETED
     assert len(report.findings) == 1
     assert report.findings[0].verified is False
-    assert seen["kwargs"]["shell"] is False
-    assert seen["kwargs"]["timeout"] == 300
-    assert seen["command"][-2:] == ["--format", "json"]
 
 
-def test_runner_rejects_symlinked_workspace_contents(monkeypatch, tmp_path):
+def test_runner_rejects_symlinked_workspace_contents(tmp_path):
     asset, request, workspace = make_case(tmp_path)
     target = tmp_path / "outside.tf"
     target.write_text('resource "x" "z" {}', encoding="utf-8")
     (workspace / "linked.tf").symlink_to(target)
 
-    def unexpected_run(*args, **kwargs):
-        raise AssertionError("scanner must not run for a symlinked workspace")
-
-    monkeypatch.setattr(subprocess, "run", unexpected_run)
     with pytest.raises(ValueError, match="symbolic link"):
-        CloudSentryProcessScanner().scan(asset, request)
+        CloudSentryProcessScanner(executable="/does/not/need/to/exist").scan(asset, request)
 
 
-def test_runner_enforces_timeout(monkeypatch, tmp_path):
+def test_runner_enforces_timeout_and_terminates_process_group(tmp_path):
     asset, request, _ = make_case(tmp_path)
+    executable = write_executable(tmp_path, "import time\ntime.sleep(5)")
+    scanner = CloudSentryProcessScanner(executable=executable, timeout_seconds=1)
 
-    def timeout(*args, **kwargs):
-        raise subprocess.TimeoutExpired(args[0], kwargs["timeout"])
-
-    monkeypatch.setattr(subprocess, "run", timeout)
     with pytest.raises(CloudSentryExecutionError, match="execution limit"):
-        CloudSentryProcessScanner(timeout_seconds=5).scan(asset, request)
+        scanner.scan(asset, request)
 
 
-def test_runner_redacts_secrets_from_unexpected_exit_diagnostics(monkeypatch, tmp_path):
+def test_runner_rejects_output_over_the_combined_byte_limit(tmp_path):
+    asset, request, _ = make_case(tmp_path)
+    executable = write_executable(
+        tmp_path,
+        "import sys\nsys.stdout.write('x' * 4096)",
+    )
+    scanner = CloudSentryProcessScanner(
+        executable=executable,
+        max_output_bytes=1024,
+    )
+
+    with pytest.raises(CloudSentryExecutionError, match="output exceeded"):
+        scanner.scan(asset, request)
+
+
+def test_runner_redacts_secrets_from_unexpected_exit_diagnostics(tmp_path):
     asset, request, _ = make_case(tmp_path)
     secret = "do-not-store-this-scanner-password"
+    script = (
+        "import sys\n"
+        f"sys.stderr.write('password = {json.dumps(secret)}')\n"
+        "raise SystemExit(3)"
+    )
+    executable = write_executable(tmp_path, script)
 
-    def failed_run(command, **kwargs):
-        return subprocess.CompletedProcess(
-            command, 3, "", f'password = "{secret}"'
-        )
-
-    monkeypatch.setattr(subprocess, "run", failed_run)
     with pytest.raises(CloudSentryExecutionError) as captured:
-        CloudSentryProcessScanner().scan(asset, request)
+        CloudSentryProcessScanner(executable=executable).scan(asset, request)
 
     assert secret not in str(captured.value)
     assert "[REDACTED]" in str(captured.value)
