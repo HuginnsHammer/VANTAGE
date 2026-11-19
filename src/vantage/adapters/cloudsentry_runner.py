@@ -1,10 +1,17 @@
 """Bounded local process adapter for the CloudSentry CLI.
 
 The executable path is trusted operator configuration. User-controlled paths are
-passed as individual argv values; no shell is involved.
+passed as individual argv values; no shell is involved. Output is streamed under
+a combined byte limit and the process group is terminated on timeout/overflow.
+
+This is process-level containment, not an OS sandbox or a CPU/memory limit.
 """
 import json
+import os
+import selectors
+import signal
 import subprocess
+import time
 from pathlib import Path
 
 from vantage.adapters.cloudsentry import import_cloudsentry_report
@@ -12,8 +19,109 @@ from vantage.adapters.redaction import redact_sensitive_text
 from vantage.domain.models import Asset, AssetKind, ScanReport, ScanRequest, ScanState
 
 
+DEFAULT_MAX_OUTPUT_BYTES = 8 * 1024 * 1024
+_MAX_ALLOWED_OUTPUT_BYTES = 64 * 1024 * 1024
+
+
 class CloudSentryExecutionError(RuntimeError):
     pass
+
+
+def _terminate_process_group(process: subprocess.Popen[bytes]) -> None:
+    """Stop the scanner and descendants started in its isolated process group."""
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    except OSError:
+        if process.poll() is None:
+            process.kill()
+
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def _run_bounded_process(
+    command: list[str],
+    *,
+    timeout_seconds: int,
+    max_output_bytes: int,
+) -> subprocess.CompletedProcess[str]:
+    """Capture stdout/stderr without allowing either stream to grow without bound."""
+    if os.name != "posix":
+        raise CloudSentryExecutionError(
+            "Bounded CloudSentry execution currently requires a POSIX worker"
+        )
+
+    process = subprocess.Popen(
+        command,
+        shell=False,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        close_fds=True,
+        start_new_session=True,
+    )
+    selector = selectors.DefaultSelector()
+    stdout = bytearray()
+    stderr = bytearray()
+    total_output_bytes = 0
+    deadline = time.monotonic() + timeout_seconds
+
+    try:
+        if process.stdout is None or process.stderr is None:
+            raise CloudSentryExecutionError("Could not capture CloudSentry output")
+
+        os.set_blocking(process.stdout.fileno(), False)
+        os.set_blocking(process.stderr.fileno(), False)
+        selector.register(process.stdout, selectors.EVENT_READ, data=stdout)
+        selector.register(process.stderr, selectors.EVENT_READ, data=stderr)
+
+        while selector.get_map():
+            remaining_seconds = deadline - time.monotonic()
+            if remaining_seconds <= 0:
+                _terminate_process_group(process)
+                raise subprocess.TimeoutExpired(command, timeout_seconds)
+
+            for key, _ in selector.select(timeout=min(remaining_seconds, 0.25)):
+                remaining_bytes = max_output_bytes - total_output_bytes + 1
+                try:
+                    chunk = os.read(key.fileobj.fileno(), min(65536, remaining_bytes))
+                except BlockingIOError:
+                    continue
+
+                if not chunk:
+                    selector.unregister(key.fileobj)
+                    key.fileobj.close()
+                    continue
+
+                total_output_bytes += len(chunk)
+                if total_output_bytes > max_output_bytes:
+                    _terminate_process_group(process)
+                    raise CloudSentryExecutionError(
+                        "CloudSentry output exceeded the "
+                        f"{max_output_bytes}-byte combined stdout/stderr limit"
+                    )
+                key.data.extend(chunk)
+
+        returncode = process.wait()
+        return subprocess.CompletedProcess(
+            command,
+            returncode,
+            stdout.decode("utf-8", errors="replace"),
+            stderr.decode("utf-8", errors="replace"),
+        )
+    finally:
+        selector.close()
+        if process.poll() is None:
+            _terminate_process_group(process)
+        if process.stdout is not None and not process.stdout.closed:
+            process.stdout.close()
+        if process.stderr is not None and not process.stderr.closed:
+            process.stderr.close()
 
 
 class CloudSentryProcessScanner:
@@ -21,11 +129,19 @@ class CloudSentryProcessScanner:
     display_name = "CloudSentry local IaC and container auditor"
     supports_active_checks = False
 
-    def __init__(self, executable: str = "cloudsentry", timeout_seconds: int = 300) -> None:
+    def __init__(
+        self,
+        executable: str = "cloudsentry",
+        timeout_seconds: int = 300,
+        max_output_bytes: int = DEFAULT_MAX_OUTPUT_BYTES,
+    ) -> None:
         if not 1 <= timeout_seconds <= 1800:
             raise ValueError("timeout_seconds must be between 1 and 1800")
+        if not 1024 <= max_output_bytes <= _MAX_ALLOWED_OUTPUT_BYTES:
+            raise ValueError("max_output_bytes must be between 1024 and 67108864")
         self.executable = executable
         self.timeout_seconds = timeout_seconds
+        self.max_output_bytes = max_output_bytes
 
     def scan(self, asset: Asset, request: ScanRequest) -> ScanReport:
         if asset.kind != AssetKind.LOCAL_WORKSPACE:
@@ -49,21 +165,19 @@ class CloudSentryProcessScanner:
 
         command = [self.executable, "scan", str(workspace), "--format", "json"]
         try:
-            completed = subprocess.run(
+            completed = _run_bounded_process(
                 command,
-                shell=False,
-                check=False,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                timeout=self.timeout_seconds,
+                timeout_seconds=self.timeout_seconds,
+                max_output_bytes=self.max_output_bytes,
             )
         except subprocess.TimeoutExpired as exc:
             raise CloudSentryExecutionError(
                 f"CloudSentry exceeded its {self.timeout_seconds}-second execution limit"
             ) from exc
+        except CloudSentryExecutionError:
+            raise
         except OSError as exc:
-            raise CloudSentryExecutionError(f"Could not start CloudSentry: {exc}") from exc
+            raise CloudSentryExecutionError(f"Could not execute CloudSentry: {exc}") from exc
 
         if completed.returncode not in (0, 1, 2):
             detail = redact_sensitive_text(completed.stderr.strip())[:1000]
