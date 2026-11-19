@@ -5,14 +5,14 @@ VANTAGE currently integrates the CloudSentry local IaC/container scanner. This i
 ## Prerequisites
 
 1. Install CloudSentry from its own repository using its documented development setup.
-2. Ensure the \`cloudsentry\` executable is on the scanner worker's PATH, or provide an absolute executable path in the VANTAGE scanner configuration.
+2. Ensure the `cloudsentry` executable is on the scanner worker's PATH, or provide an absolute executable path in the VANTAGE scanner configuration.
 3. Run VANTAGE in the same local environment that can access the approved workspace. The current bounded subprocess runner uses POSIX process groups; Linux is the supported local/OCI execution environment.
 
 ## Python integration
 
 The caller must first create an asset and an explicit approved scope. The following is a local development example; replace the authorization reference with the real approval record used by your organization.
 
-\`\`\`python
+```python
 from pathlib import Path
 from uuid import uuid4
 
@@ -52,7 +52,7 @@ report = coordinator.run(asset, scope, request)
 print(report.state)
 for finding in report.findings:
     print(finding.severity, finding.rule_id, finding.title)
-\`\`\`
+```
 
 ## Execution safeguards
 
