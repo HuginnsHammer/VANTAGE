@@ -8,11 +8,11 @@ This is process-level containment, not an OS sandbox or a CPU/memory limit.
 """
 import json
 import os
+from pathlib import Path
 import selectors
 import signal
 import subprocess
 import time
-from pathlib import Path
 
 from vantage.adapters.cloudsentry import import_cloudsentry_report
 from vantage.adapters.redaction import redact_sensitive_text
