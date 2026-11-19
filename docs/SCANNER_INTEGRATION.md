@@ -6,7 +6,7 @@ VANTAGE currently integrates the CloudSentry local IaC/container scanner. This i
 
 1. Install CloudSentry from its own repository using its documented development setup.
 2. Ensure the `cloudsentry` executable is on the scanner worker's PATH, or provide an absolute executable path in the VANTAGE scanner configuration.
-3. Run VANTAGE in the same local environment that can access the approved workspace.
+3. Run VANTAGE in the same local environment that can access the approved workspace. The current bounded subprocess runner uses POSIX process groups; Linux is the supported local/OCI execution environment.
 
 ## Python integration
 
@@ -58,14 +58,16 @@ for finding in report.findings:
 
 - The CloudSentry executable is trusted operator configuration, not user input.
 - Workspace paths are passed as separate process arguments; shell execution is disabled.
-- The runner has a bounded timeout and rejects unexpected exit codes or malformed JSON.
+- The runner enforces a configurable timeout (300 seconds by default) and caps combined stdout/stderr at 8 MiB by default.
+- The scanner starts in a separate POSIX process group. Timeout and output-limit failures terminate that group, including ordinary child processes.
+- The runner rejects unexpected exit codes and malformed JSON reports.
 - Symlinked workspace roots and discovered symlink entries are rejected before execution.
 - CloudSentry's exit status and report status are preserved; partial scans are not clean scans.
 - Imported findings remain unverified until a separate verification process confirms them.
 - Imported evidence, finding descriptions, remediation text, warnings, errors and process diagnostics pass through a best-effort secret sanitizer. It covers common private-key blocks, AWS access-key IDs, GitHub tokens, JWTs, bearer/basic authorization values, URL passwords and literal values assigned to common secret fields.
 
-The sanitizer is defense in depth, not a complete data-loss-prevention guarantee. It cannot identify every proprietary token format, encoded secret or context-specific credential. Protect the local VANTAGE data directory and review reports before sharing them outside the authorized assessment team.
+The sanitizer is defense in depth, not a complete data-loss-prevention guarantee. The output cap bounds captured process output, but the current runner is not an OS sandbox and does not impose CPU, memory, filesystem or network isolation. Protect the local VANTAGE data directory and review reports before sharing them outside the authorized assessment team.
 
 ## Current limitations
 
-The current runner is a local process adapter. It is not yet a durable worker, remote scanner node, authenticated API, or multi-tenant service. Do not expose it directly to untrusted clients. PostgreSQL persistence, queueing, OIDC, scanner-node enrollment, worker isolation and egress controls remain roadmap work.
+The current runner is a local process adapter. It is not yet a durable worker, remote scanner node, authenticated API, or multi-tenant scan service. Do not expose it directly to untrusted clients. OCI isolation, resource quotas, egress controls, PostgreSQL-backed scan persistence and durable queueing remain roadmap work.

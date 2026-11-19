@@ -17,6 +17,19 @@ Tenant data, identity tokens, scanner enrollment credentials, scope approvals, s
 | AI prompt injection | Treat findings/pages as untrusted data; no tool or remediation authority from model output |
 | Supply-chain compromise | Pinned dependencies, SBOM, signed images, provenance and dependency scanning |
 
+## Current local scanner boundary
+
+The local CloudSentry adapter now streams stdout and stderr under a combined
+8 MiB default cap, enforces a configurable timeout, and starts the scanner in a
+separate POSIX process group so timeout and output-overflow failures can terminate
+ordinary child processes. This reduces unbounded report/diagnostic capture and
+prevents a timed-out child process from being left running in the same group.
+
+These controls do not constitute a sandbox. The scanner still runs as the VANTAGE
+OS user and can access whatever files and network resources that user can access.
+CPU, memory, filesystem and egress isolation, OCI worker hardening and per-tenant
+resource budgets remain required before hosted or untrusted scan execution.
+
 ## Safe defaults
 - No active exploitation in the initial milestone.
 - No scanning until scope is explicitly approved.
