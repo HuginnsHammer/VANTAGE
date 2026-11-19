@@ -17,7 +17,7 @@ The hosted API accepts RS256-signed OIDC JWT access tokens. It validates the
 configured issuer, audience, signature, expiry, issued-at time and subject
 against the configured JWKS endpoint. The stable identity key is the exact
 issuer/subject pair. Email is profile metadata and is stored only when the
-provider asserts \`email_verified=true\`.
+provider asserts `email_verified=true`.
 
 The API does not trust a client-supplied user ID. A personal workspace is
 provisioned deterministically on the first authenticated API request.
@@ -67,7 +67,7 @@ changes, suspension and SCIM are not yet implemented.
 
 Authenticated workspace members can register canonicalized public domain names
 and request a short-lived DNS TXT challenge at
-\`_vantage-challenge.<domain>\`. VANTAGE stores only a hash of the challenge
+`_vantage-challenge.<domain>`. VANTAGE stores only a hash of the challenge
 value, limits challenge creation, verifies the DNS response, records the
 verification timestamp and writes audit events.
 
