@@ -53,7 +53,7 @@ def test_runner_invokes_cli_without_shell_and_normalizes_report(tmp_path):
             "file_path": str(workspace / "main.tf"),
             "evidence": 'cidr_blocks = ["0.0.0.0/0"]',
             "remediation": "Restrict the CIDR range.",
-            "fingerprint": "f" * 64,
+            "fingerprint": "f" * 24,
         }],
         "errors": [],
         "warnings": [],

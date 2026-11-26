@@ -1,4 +1,5 @@
 """Normalize CloudSentry JSON output without upgrading uncertain results to verified."""
+import re
 from uuid import UUID
 
 from vantage.adapters.redaction import redact_sensitive_text
@@ -18,24 +19,97 @@ _SEVERITIES = {
     "low": FindingSeverity.LOW,
     "info": FindingSeverity.INFO,
 }
+# CloudSentry derives this 24-character, lowercase hex identity from SHA-256.
+_FINGERPRINT = re.compile(r"^[0-9a-f]{24}$", re.IGNORECASE)
+_MAX_DIAGNOSTICS = 100
+
+
+def _append_diagnostic(items: list[str], message: str) -> None:
+    if len(items) < _MAX_DIAGNOSTICS:
+        items.append(message)
 
 
 def import_cloudsentry_report(
     payload: dict, *, organization_id: UUID, asset_id: UUID
 ) -> ScanReport:
+    if not isinstance(payload, dict):
+        return ScanReport(
+            organization_id=organization_id,
+            asset_id=asset_id,
+            scanner_id="cloudsentry",
+            state=ScanState.FAILED,
+            errors=("CloudSentry returned a non-object report.",),
+        )
+
     status = str(payload.get("status", "error")).lower()
     state = {
         "ok": ScanState.COMPLETED,
         "partial": ScanState.PARTIAL,
         "error": ScanState.FAILED,
     }.get(status, ScanState.FAILED)
+    errors: list[str] = []
+    warnings: list[str] = []
+    raw_errors = payload.get("errors", [])
+    if isinstance(raw_errors, list):
+        for item in raw_errors[:_MAX_DIAGNOSTICS]:
+            if isinstance(item, dict):
+                _append_diagnostic(
+                    errors,
+                    redact_sensitive_text(item.get("message", "Unknown scan error"))[:1000],
+                )
+            else:
+                _append_diagnostic(errors, "CloudSentry returned a malformed error entry.")
+        if len(raw_errors) > _MAX_DIAGNOSTICS:
+            _append_diagnostic(errors, "Additional scanner errors omitted.")
+    else:
+        _append_diagnostic(errors, "CloudSentry errors field is not a list.")
+
+    raw_warnings = payload.get("warnings", [])
+    if isinstance(raw_warnings, list):
+        warnings.extend(
+            redact_sensitive_text(item)[:1000]
+            for item in raw_warnings[:_MAX_DIAGNOSTICS]
+        )
+        if len(raw_warnings) > _MAX_DIAGNOSTICS:
+            warnings.append("Additional scanner warnings omitted.")
+    else:
+        _append_diagnostic(warnings, "CloudSentry warnings field is not a list.")
+
+    raw_files_scanned = payload.get("files_scanned", 0)
+    if (
+        isinstance(raw_files_scanned, bool)
+        or not isinstance(raw_files_scanned, int)
+        or raw_files_scanned < 0
+    ):
+        files_scanned = 0
+        _append_diagnostic(errors, "CloudSentry files_scanned must be a non-negative integer.")
+    else:
+        files_scanned = raw_files_scanned
+
+    raw_findings = payload.get("findings", [])
+    if not isinstance(raw_findings, list):
+        raw_findings = []
+        _append_diagnostic(errors, "CloudSentry findings field is not a list.")
+
     findings = []
-    for item in payload.get("findings", []):
+    seen_fingerprints: set[str] = set()
+    for index, item in enumerate(raw_findings):
         if not isinstance(item, dict):
+            _append_diagnostic(errors, f"Skipped malformed finding entry at index {index}.")
             continue
-        fingerprint = str(item.get("fingerprint", ""))
-        if len(fingerprint) < 16:
+        raw_fingerprint = item.get("fingerprint")
+        fingerprint = raw_fingerprint.lower() if isinstance(raw_fingerprint, str) else ""
+        if not _FINGERPRINT.fullmatch(fingerprint):
+            _append_diagnostic(
+                errors,
+                f"Skipped finding at index {index}: fingerprint must be 24 hexadecimal characters.",
+            )
             continue
+        if fingerprint in seen_fingerprints:
+            _append_diagnostic(errors, f"Skipped duplicate finding fingerprint at index {index}.")
+            continue
+        seen_fingerprints.add(fingerprint)
+
         confidence = str(item.get("confidence", "unknown")).lower()
         confidence_value = (
             Confidence(confidence)
@@ -75,23 +149,24 @@ def import_cloudsentry_report(
                 verified=False,
             )
         )
-    errors = tuple(
-        redact_sensitive_text(item.get("message", "Unknown scan error"))[:1000]
-        for item in payload.get("errors", [])
-        if isinstance(item, dict)
-    )
-    warnings = tuple(
-        redact_sensitive_text(item)[:1000] for item in payload.get("warnings", [])
-    )
-    if errors and state == ScanState.COMPLETED:
+
+    if status not in {"ok", "partial", "error"}:
+        _append_diagnostic(errors, "CloudSentry returned an unrecognized scan status.")
+    if state == ScanState.FAILED and not errors:
+        _append_diagnostic(errors, "CloudSentry reported an error without diagnostics.")
+    if state in {ScanState.COMPLETED, ScanState.PARTIAL} and files_scanned == 0:
+        _append_diagnostic(errors, "CloudSentry did not examine any files.")
+        state = ScanState.FAILED
+    elif errors and state == ScanState.COMPLETED:
         state = ScanState.PARTIAL
+
     return ScanReport(
         organization_id=organization_id,
         asset_id=asset_id,
         scanner_id="cloudsentry",
         state=state,
         findings=tuple(findings),
-        errors=errors,
-        warnings=warnings,
-        files_or_targets_examined=int(payload.get("files_scanned", 0) or 0),
+        errors=tuple(errors),
+        warnings=tuple(warnings),
+        files_or_targets_examined=files_scanned,
     )
