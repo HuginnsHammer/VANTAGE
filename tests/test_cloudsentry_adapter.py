@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+import pytest
+
 from vantage.adapters.cloudsentry import import_cloudsentry_report
 from vantage.domain.models import FindingSeverity, ScanState
 
@@ -18,7 +20,7 @@ def test_partial_cloudsentry_scan_stays_partial_and_unverified():
                     "evidence": "cidr_blocks = [0.0.0.0/0]",
                     "file_path": "main.tf",
                     "remediation": "Restrict CIDR.",
-                    "fingerprint": "a" * 64,
+                    "fingerprint": "A" * 24,
                 }
             ],
             "errors": [{"message": "A file could not be parsed"}],
@@ -29,16 +31,80 @@ def test_partial_cloudsentry_scan_stays_partial_and_unverified():
     assert report.state == ScanState.PARTIAL
     assert report.findings[0].severity == FindingSeverity.HIGH
     assert report.findings[0].verified is False
+    assert report.findings[0].fingerprint == "a" * 24
     assert report.errors
 
 
-def test_malformed_fingerprint_is_not_given_an_invented_identity():
+def test_malformed_fingerprint_downgrades_complete_scan():
     report = import_cloudsentry_report(
-        {"status": "ok", "findings": [{"rule_id": "CS-X", "fingerprint": "short"}]},
+        {
+            "status": "ok",
+            "files_scanned": 1,
+            "findings": [{"rule_id": "CS-X", "fingerprint": "short"}],
+        },
         organization_id=uuid4(),
         asset_id=uuid4(),
     )
+    assert report.state == ScanState.PARTIAL
     assert report.findings == ()
+    assert "fingerprint" in report.errors[0]
+
+
+@pytest.mark.parametrize("fingerprint", ["g" * 24, "a" * 64])
+def test_noncanonical_fingerprint_downgrades_complete_scan(fingerprint):
+    report = import_cloudsentry_report(
+        {
+            "status": "ok",
+            "files_scanned": 1,
+            "findings": [{"rule_id": "CS-X", "fingerprint": fingerprint}],
+        },
+        organization_id=uuid4(),
+        asset_id=uuid4(),
+    )
+    assert report.state == ScanState.PARTIAL
+    assert report.findings == ()
+    assert report.errors
+
+
+def test_duplicate_fingerprints_downgrade_complete_scan_and_keep_first():
+    fingerprint = "b" * 24
+    report = import_cloudsentry_report(
+        {
+            "status": "ok",
+            "files_scanned": 1,
+            "findings": [
+                {"rule_id": "CS-X", "title": "First", "fingerprint": fingerprint},
+                {"rule_id": "CS-Y", "title": "Duplicate", "fingerprint": fingerprint},
+            ],
+        },
+        organization_id=uuid4(),
+        asset_id=uuid4(),
+    )
+    assert report.state == ScanState.PARTIAL
+    assert len(report.findings) == 1
+    assert "duplicate" in report.errors[0]
+
+
+def test_complete_scan_requires_positive_file_count():
+    report = import_cloudsentry_report(
+        {"status": "ok", "files_scanned": 0, "findings": []},
+        organization_id=uuid4(),
+        asset_id=uuid4(),
+    )
+    assert report.state == ScanState.FAILED
+    assert report.files_or_targets_examined == 0
+    assert report.errors
+
+
+def test_malformed_finding_entry_downgrades_complete_scan():
+    report = import_cloudsentry_report(
+        {"status": "ok", "files_scanned": 1, "findings": [None]},
+        organization_id=uuid4(),
+        asset_id=uuid4(),
+    )
+    assert report.state == ScanState.PARTIAL
+    assert report.findings == ()
+    assert report.errors
 
 
 def test_scanner_text_is_redacted_before_entering_the_report():
@@ -78,7 +144,7 @@ def test_scanner_text_is_redacted_before_entering_the_report():
                     ),
                     "file_path": "main.tf",
                     "remediation": "Use token = var.database_password and rotate credentials.",
-                    "fingerprint": "c" * 64,
+                    "fingerprint": "c" * 24,
                 }
             ],
             "errors": [{"message": f"Could not parse password = {secrets['error']}"}],

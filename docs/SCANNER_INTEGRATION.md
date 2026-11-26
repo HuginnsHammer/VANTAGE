@@ -64,6 +64,8 @@ for finding in report.findings:
 - Symlinked workspace roots and discovered symlink entries are rejected before execution.
 - CloudSentry's exit status and report status are preserved; partial scans are not clean scans.
 - Imported findings remain unverified until a separate verification process confirms them.
+- CloudSentry fingerprints must be 24 hexadecimal characters (the scanner's SHA-256 prefix); accepted values are normalized to lowercase.
+- Invalid or duplicate fingerprints and malformed finding entries are skipped and downgrade an otherwise complete report to partial. A complete report must also examine at least one file, preventing malformed or empty reports from resolving previously observed findings.
 - Imported evidence, finding descriptions, remediation text, warnings, errors and process diagnostics pass through a best-effort secret sanitizer. It covers common private-key blocks, AWS access-key IDs, GitHub tokens, JWTs, bearer/basic authorization values, URL passwords and literal values assigned to common secret fields.
 
 The sanitizer is defense in depth, not a complete data-loss-prevention guarantee. The output cap bounds captured process output, but the current runner is not an OS sandbox and does not impose CPU, memory, filesystem or network isolation. Protect the local VANTAGE data directory and review reports before sharing them outside the authorized assessment team.
