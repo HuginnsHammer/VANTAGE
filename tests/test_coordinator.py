@@ -88,3 +88,69 @@ def test_active_checks_require_explicit_approval():
     active = request.model_copy(update={"active_checks_requested": True})
     with pytest.raises(ScopeDenied):
         coordinator.run(asset, scope, active)
+
+
+def test_request_organization_mismatch_is_denied():
+    asset, scope, request, coordinator = setup_case()
+    mismatched = request.model_copy(update={"organization_id": uuid4()})
+    with pytest.raises(ScopeDenied, match="does not own the asset"):
+        coordinator.run(asset, scope, mismatched)
+
+
+def test_scope_organization_mismatch_is_denied():
+    asset, scope, request, coordinator = setup_case()
+    mismatched = scope.model_copy(update={"organization_id": uuid4()})
+    with pytest.raises(ScopeDenied, match="does not authorize this asset"):
+        coordinator.run(asset, mismatched, request)
+
+
+def test_request_scope_mismatch_is_denied():
+    asset, scope, request, coordinator = setup_case()
+    mismatched = request.model_copy(update={"scope_id": uuid4()})
+    with pytest.raises(ScopeDenied, match="different authorization record"):
+        coordinator.run(asset, scope, mismatched)
+
+
+def test_scanner_not_allowlisted_is_denied():
+    asset, scope, request, coordinator = setup_case()
+    denied = request.model_copy(update={"scanner_id": "other-scanner"})
+    with pytest.raises(ScopeDenied, match="not permitted by this scope"):
+        coordinator.run(asset, scope, denied)
+
+
+def test_scanner_report_tenant_mismatch_is_rejected():
+    asset, scope, request, coordinator = setup_case()
+
+    class WrongTenantScanner(StubScanner):
+        def scan(self, asset, request):
+            return ScanReport(
+                organization_id=uuid4(),
+                asset_id=asset.id,
+                scanner_id=self.scanner_id,
+                state=ScanState.COMPLETED,
+            )
+
+    registry = ScannerRegistry()
+    registry.register(WrongTenantScanner())
+    coordinator = ScanCoordinator(registry)
+    with pytest.raises(RuntimeError, match="outside the authorized tenant/asset"):
+        coordinator.run(asset, scope, request)
+
+
+def test_scanner_report_identity_mismatch_is_rejected():
+    asset, scope, request, coordinator = setup_case()
+
+    class WrongIdentityScanner(StubScanner):
+        def scan(self, asset, request):
+            return ScanReport(
+                organization_id=asset.organization_id,
+                asset_id=asset.id,
+                scanner_id="unexpected",
+                state=ScanState.COMPLETED,
+            )
+
+    registry = ScannerRegistry()
+    registry.register(WrongIdentityScanner())
+    coordinator = ScanCoordinator(registry)
+    with pytest.raises(RuntimeError, match="unexpected scanner identity"):
+        coordinator.run(asset, scope, request)
